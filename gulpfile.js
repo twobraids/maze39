@@ -3,6 +3,8 @@ const connect = require('gulp-connect');
 const rollup = require('rollup').rollup;
 const ghPages = require('gulp-gh-pages');
 
+const DEBUG = process.env.NODE_ENV === 'development';
+
 gulp.task('build:html', () => gulp.src('./src/**/*.html')
   .pipe(gulp.dest('./dist'))
   .pipe(connect.reload()));
@@ -13,7 +15,12 @@ gulp.task('build:js', () => rollup({
   entry: 'src/index.js',
   plugins: [
     require('rollup-plugin-node-resolve')({ jsnext: true }),
-    require('rollup-plugin-commonjs')()
+    require('rollup-plugin-commonjs')(),
+    require('rollup-plugin-babel')({
+      exclude: 'node_modules/**',
+      presets: 'es2015-rollup'
+    }),
+    !DEBUG && require('rollup-plugin-uglify')()
   ]
 }).then(bundle => bundle.write({
   format: 'iife',
@@ -43,6 +50,6 @@ gulp.task('server', () => connect.server({
   port: '9000'
 }));
 
-gulp.task('deploy', () => gulp.src('./dist/**/*').pipe(ghPages()));
+gulp.task('deploy', ['build'], () => gulp.src('./dist/**/*').pipe(ghPages()));
 
 gulp.task('default', ['build', 'watch', 'self-watch', 'server']);
