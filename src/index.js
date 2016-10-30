@@ -2,6 +2,7 @@
  * fx-maze
  *
  * TODO:
+ * - mini-map?
  * - Cut maze up into tiles, render & load only visible tiles?
  * - Websocket server to show other players?
  */
@@ -10,16 +11,16 @@ import Stats from 'stats.js';
 
 const DEBUG = true;
 const TICK = 1000 / 60;
+const PASSABLE_MIN = 67;
 
 const ctx = document.getElementById('viewport').getContext('2d');
 
 const map = {
   src: 'mazes/Firefox.png',
   // src: 'mazes/Firefox.solution.png',
-  startX: 499,
-  startY: 432,
-  width: 4000,
-  height: 4000
+  startX: 499, startY: 432,
+  // startX: 525, startY: 641,
+  width: 4000, height: 4000
 };
 
 map.img = new Image();
@@ -28,7 +29,7 @@ map.img.src = map.src;
 const keys = { };
 const gamepad = { };
 const mouse = { x: 0, y: 0, down: false };
-const camera = { x: 0, y: 0, z: 0.5, zmin: 0.5, zmax: 4, zdelay: 0 };
+const camera = { x: 0, y: 0, z: 1, zmin: 1, zmax: 4, zdelay: 0 };
 const player = {
   position: { x: 0, y: 0 },
   motion: { maxSpeed: 2, accel: 0.01, dx: 0, dy: 0 }
@@ -105,7 +106,7 @@ function updateGamepads(dt) {
 }
 
 function clearCanvas(dt) {
-  ctx.fillStyle = "rgba(0, 0, 0, 1.0)";
+  ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
@@ -254,7 +255,7 @@ function getPixelAvgAt(x, y) {
 }
 
 function isPassableAt(x, y) {
-  return getPixelAvgAt(x, y) > 72;
+  return getPixelAvgAt(x, y) > PASSABLE_MIN;
 }
 
 function drawPlayer(dt) {
