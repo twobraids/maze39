@@ -1,6 +1,7 @@
 const gulp = require('gulp');
 const connect = require('gulp-connect');
 const rollup = require('rollup').rollup;
+const ghPages = require('gulp-gh-pages');
 
 gulp.task('build:html', () => gulp.src('./src/**/*.html')
   .pipe(gulp.dest('./dist'))
@@ -33,9 +34,7 @@ gulp.task('build', ['build:js', 'build:html', 'build:images']);
 
 gulp.task('watch', ['watch:js', 'watch:html', 'watch:images']);
 
-gulp.task('self-watch', function() {
-    gulp.watch('gulpfile.js', process.exit);
-});
+gulp.task('self-watch', () => gulp.watch('gulpfile.js', process.exit));
 
 gulp.task('server', () => connect.server({
   root: 'dist',
@@ -43,5 +42,7 @@ gulp.task('server', () => connect.server({
   host: '0.0.0.0',
   port: '9000'
 }));
+
+gulp.task('deploy', () => gulp.src('./dist/**/*').pipe(ghPages()));
 
 gulp.task('default', ['build', 'watch', 'self-watch', 'server']);

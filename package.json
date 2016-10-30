@@ -4,7 +4,8 @@
   "description": "firefox maze",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "while [ 1 ]; do gulp; done"
   },
   "author": "",
   "license": "ISC",
@@ -16,6 +17,8 @@
     "babelrc-rollup": "^3.0.0",
     "eslint": "^3.9.0",
     "gulp": "^3.9.1",
+    "gulp-connect": "^5.0.0",
+    "gulp-gh-pages": "^0.5.4",
     "istanbul": "^0.4.5",
     "mocha": "^3.1.2",
     "rollup": "^0.36.3",
@@ -23,8 +26,7 @@
     "rollup-plugin-commonjs": "^5.0.5",
     "rollup-plugin-istanbul": "^1.1.0",
     "rollup-plugin-node-resolve": "^2.0.0",
-    "rollup-watch": "^2.5.0",
-    "gulp-connect": "^5.0.0"
+    "rollup-watch": "^2.5.0"
   },
   "dependencies": {
     "dat.gui": "git+https://github.com/dataarts/dat.gui.git",
