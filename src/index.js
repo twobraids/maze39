@@ -1,4 +1,12 @@
-import dat from 'dat-gui';
+/**
+ * fx-maze
+ *
+ * TODO:
+ * - Cut maze up into tiles, render & load only visible tiles?
+ * - Websocket server to show other players?
+ */
+import Dat from 'dat-gui';
+import Stats from 'stats.js';
 
 const DEBUG = true;
 const TICK = 1000 / 60;
@@ -17,54 +25,29 @@ const map = {
 map.img = new Image();
 map.img.src = map.src;
 
-const debugOut = { keys: '' };
 const keys = { };
 const gamepad = { };
 const mouse = { x: 0, y: 0, down: false };
-const camera = { x: 0, y: 0, z: 0.5, zmin: 0.5, zmax: 3, zdelay: 0 };
+const camera = { x: 0, y: 0, z: 0.5, zmin: 0.5, zmax: 4, zdelay: 0 };
 const player = {
   position: { x: 0, y: 0 },
-  motion: { maxSpeed: 1, accel: 0.01, dx: 0, dy: 0 }
+  motion: { maxSpeed: 2, accel: 0.01, dx: 0, dy: 0 }
 };
-let gui;
+
+const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '' };
+let gui, statsDraw, statsUpdate;
 
 let lastUpdate = Date.now();
 let lastDraw = null;
 
 function init() {
-  initEvents();
+  initUIEvents();
   initPlayer();
-
-  if (DEBUG) { initDebugGUI(); }
+  initDebugGUI();
 
   expandCanvas();
   setTimeout(update, TICK);
   window.requestAnimationFrame(draw);
-}
-
-function initDebugGUI() {
-  gui = new dat.GUI();
-
-  const listenAll = (folder, obj, except) => {
-    Object.keys(obj).forEach(k => folder.add(obj, k).listen());
-  };
-
-  const fplayer = gui.addFolder('player');
-  fplayer.open();
-  listenAll(fplayer, player.position);
-  listenAll(fplayer, player.motion);
-
-  const fcamera = gui.addFolder('camera');
-  fcamera.open();
-  listenAll(fcamera, camera);
-
-  const fmouse = gui.addFolder('mouse');
-  fmouse.open();
-  listenAll(fmouse, mouse);
-
-  const fkeys = gui.addFolder('debug');
-  fkeys.open();
-  fkeys.add(debugOut, 'keys').listen();
 }
 
 function update() {
@@ -72,10 +55,13 @@ function update() {
   const dt = now - lastUpdate;
   lastUpdate = now;
 
-  //updateGamepads(dt);
-  updatePlayer(dt);
+  if (DEBUG) { statsUpdate.begin(); }
 
-  debugOut.keys = JSON.stringify(keys);
+  updateGamepads(dt);
+  updatePlayer(dt);
+  updateDebug();
+
+  if (DEBUG) { statsUpdate.end(); }
 
   setTimeout(update, TICK);
 }
@@ -85,45 +71,37 @@ function draw(ts) {
   const dt = ts - lastDraw;
   lastDraw = ts;
 
+  if (DEBUG) { statsDraw.begin(); }
+
   ctx.save();
   clearCanvas();
-  followAndZoom(dt);
   drawMaze(dt);
+  followAndZoom(dt);
   drawPlayer(dt);
-  drawDebug(dt);
   ctx.restore();
+
+  drawDebug(dt);
+
+  if (DEBUG) { statsDraw.end(); }
 
   window.requestAnimationFrame(draw);
 }
 
 function updateGamepads(dt) {
-  var bitmask = 0;
-
-  // Helpers for accessing gamepad
-  function axis(gp,n) { return gp.axes[n] || 0.0; }
-  function btn(gp,b) { return gp.buttons[b] ? gp.buttons[b].pressed : false; }
-
+  // Object.keys(gamepad).forEach(k => delete gamepad[k]);
   var gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
 
-  // Gather input from all known gamepads.
-  // All gamepads are mapped to player #1, for now.
   for (var i = 0; i < gamepads.length; i++) {
   	var gp = gamepads[i];
   	if (!gp || !gp.connected) continue;
-
-    // directions (from axes or d-pad "buttons")
-  	bitmask |= (axis(gp,0) < -0.5 || btn(gp,14)) ? 1 : 0;
-  	bitmask |= (axis(gp,0) > 0.5 || btn(gp,15))  ? 2 : 0;
-  	bitmask |= (axis(gp,1) < -0.5 || btn(gp,12)) ? 4 : 0;
-  	bitmask |= (axis(gp,1) > 0.5 || btn(gp,13))  ? 8 : 0;
-    // buttons (mapped twice for user convenience)
-  	bitmask |= (btn(gp,0) || btn(gp,2)) ? 16 : 0;
-  	bitmask |= (btn(gp,1) || btn(gp,3)) ? 32 : 0;
+    gp.buttons.forEach((val, idx) => gamepad[`button${idx}`] = val.pressed);
+    gp.axes.forEach((val, idx) => gamepad[`axis${idx}`] = val);
+    break; // stop after the first gamepad
   }
 
-  // Update actual array and restart next frame.
-	pico8_buttons[0] = bitmask;
-	requestAnimationFrame(updateGamepads);
+  Object.keys(gamepad).forEach(k => {
+    if (!gamepad[k]) { delete gamepad[k]; }
+  });
 }
 
 function clearCanvas(dt) {
@@ -139,7 +117,7 @@ function followAndZoom(dt) {
   ctx.scale(camera.z, camera.z);
 }
 
-function initEvents() {
+function initUIEvents() {
   const windowEvents = {
     resize: expandCanvas,
     mousemove: handleMouseMove,
@@ -149,6 +127,11 @@ function initEvents() {
     keyup: handleKeyUp
   };
   Object.keys(windowEvents).forEach(k => window.addEventListener(k, windowEvents[k]));
+}
+
+function expandCanvas() {
+  ctx.canvas.width = window.innerWidth;
+  ctx.canvas.height = window.innerHeight;
 }
 
 function handleMouseMove(ev) {
@@ -166,26 +149,24 @@ function handleMouseUp(ev) {
 
 function handleKeyDown(ev) {
   keys[ev.keyCode] = true;
-  // ev.preventDefault();
 }
 
 function handleKeyUp(ev) {
   delete keys[ev.keyCode];
-  // ev.preventDefault();
 }
 
 function drawDebug(dt) {
-  document.getElementById('debug').value = `
-    ${JSON.stringify(mouse)}
-    ${JSON.stringify(keys)}
-    ${JSON.stringify(camera)}
-    ${JSON.stringify(player)}
-    ${getPixelAvgAt(player.position.x, player.position.y)}
-  `;
 }
 
 function drawMaze(dt) {
-  ctx.drawImage(map.img, 0, 0, map.width, map.height);
+  // ctx.drawImage(map.img, 0, 0, map.width, map.height);
+  ctx.drawImage(map.img,
+    player.position.x - (ctx.canvas.width / 2 / camera.z),
+    player.position.y - (ctx.canvas.height / 2 / camera.z),
+    ctx.canvas.width / camera.z,
+    ctx.canvas.height / camera.z,
+    0, 0, ctx.canvas.width, ctx.canvas.height
+  );
 }
 
 function initPlayer() {
@@ -199,20 +180,28 @@ function updatePlayer(dt) {
   let dx = player.motion.dx;
   let dy = player.motion.dy;
 
-  if (keys[37]) { // left
+  if (keys[37] || gamepad.button13) { // left
     dx = 0 - player.motion.maxSpeed;
-  } else if (keys[39]) { // right
+  } else if (keys[39] || gamepad.button14) { // right
     dx = player.motion.maxSpeed;
   } else {
     dx = 0;
   }
 
-  if (keys[38]) { // up
+  if (keys[38] || gamepad.button11) { // up
     dy = 0 - player.motion.maxSpeed;
-  } else if (keys[40]) { // down
+  } else if (keys[40] || gamepad.button12) { // down
     dy = player.motion.maxSpeed;
   } else {
     dy = 0;
+  }
+
+  if (gamepad.axis0 && Math.abs(gamepad.axis0) > 0.1) {
+    dx = player.motion.maxSpeed * gamepad.axis0;
+  }
+
+  if (gamepad.axis1 && Math.abs(gamepad.axis1) > 0.1) {
+    dy = player.motion.maxSpeed * gamepad.axis1;
   }
 
   player.motion.dx = dx;
@@ -230,6 +219,8 @@ function updatePlayer(dt) {
 
   player.position.x += dx;
   player.position.y += dy;
+
+  debugOut.avg = getPixelAvgAt(player.position.x, player.position.y);
 }
 
 function updatePlayerZoom(dt) {
@@ -263,7 +254,7 @@ function getPixelAvgAt(x, y) {
 }
 
 function isPassableAt(x, y) {
-  return getPixelAvgAt(x, y) > 77;
+  return getPixelAvgAt(x, y) > 72;
 }
 
 function drawPlayer(dt) {
@@ -286,9 +277,52 @@ function drawPlayer(dt) {
   ctx.stroke();
 }
 
-function expandCanvas() {
-  ctx.canvas.width = window.innerWidth;
-  ctx.canvas.height = window.innerHeight;
+function initDebugGUI() {
+  if (!DEBUG) { return; }
+
+  statsDraw = new Stats();
+  statsDraw.showPanel(0);
+  document.body.appendChild(statsDraw.dom);
+
+  statsUpdate = new Stats();
+  statsUpdate.showPanel(0);
+  document.body.appendChild(statsUpdate.dom);
+  statsUpdate.dom.style.top = '48px';
+
+  gui = new Dat.GUI();
+
+  const listenAll = (folder, obj, keys) => {
+    if (!keys) { keys = Object.keys(obj); }
+    keys.forEach(k => folder.add(obj, k).listen());
+  };
+
+  const fplayer = gui.addFolder('player');
+  fplayer.open();
+  listenAll(fplayer, player.position, ['x', 'y']);
+  listenAll(fplayer, player.motion, ['dx', 'dy']);
+
+  const fcamera = gui.addFolder('camera');
+  fcamera.open();
+  listenAll(fcamera, camera, ['x', 'y', 'z', 'zdelay']);
+
+  const fmouse = gui.addFolder('mouse');
+  fmouse.open();
+  listenAll(fmouse, mouse);
+
+  const fkeys = gui.addFolder('debug');
+  fkeys.open();
+  listenAll(fkeys, debugOut);
+}
+
+function updateDebug(dt) {
+  if (!DEBUG) { return; }
+
+  Object.assign(debugOut, {
+    keys: JSON.stringify(keys),
+    gamepad: JSON.stringify(gamepad),
+    gamepadAxis0: gamepad.axis0,
+    gamepadAxis1: gamepad.axis1
+  });
 }
 
 // shim layer with setTimeout fallback
