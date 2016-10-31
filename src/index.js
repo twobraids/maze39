@@ -34,6 +34,7 @@ map.img.src = map.src;
 const keys = { };
 const gamepad = { };
 const mouse = { x: 0, y: 0, down: false };
+const touch = { active: false, x: 0, y: 0 };
 const camera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
 const player = { x: 0, y: 0, r: 0, v: 0, maxSpeed: 60 / 1000 };
 
@@ -145,7 +146,10 @@ function initUIEvents() {
     mousedown: handleMouseDown,
     mouseup: handleMouseUp,
     keydown: handleKeyDown,
-    keyup: handleKeyUp
+    keyup: handleKeyUp,
+    touchstart: handleTouchStart,
+    touchmove: handleTouchMove,
+    touchend: handleTouchEnd
   };
   Object.keys(windowEvents).forEach(k => window.addEventListener(k, windowEvents[k]));
 }
@@ -158,22 +162,49 @@ function expandCanvas() {
 function handleMouseMove(ev) {
   mouse.x = ev.clientX;
   mouse.y = ev.clientY;
+  ev.preventDefault();
+}
+
+function handleTouchStart(ev) {
+  touch.active = true;
+  if (ev.changedTouches.length > 0) {
+    touch.x = ev.changedTouches[0].pageX;
+    touch.y = ev.changedTouches[0].pageY;
+  }
+  ev.preventDefault();
+}
+
+function handleTouchMove(ev) {
+  if (ev.changedTouches.length > 0) {
+    touch.x = ev.changedTouches[0].pageX;
+    touch.y = ev.changedTouches[0].pageY;
+  }
+  ev.preventDefault();
+}
+
+function handleTouchEnd(ev) {
+  touch.active = false;
+  ev.preventDefault();
 }
 
 function handleMouseDown(ev) {
   mouse.down = true;
+  ev.preventDefault();
 }
 
 function handleMouseUp(ev) {
   mouse.down = false;
+  ev.preventDefault();
 }
 
 function handleKeyDown(ev) {
   keys[ev.keyCode] = true;
+  ev.preventDefault();
 }
 
 function handleKeyUp(ev) {
   delete keys[ev.keyCode];
+  ev.preventDefault();
 }
 
 function drawDebug(dt) {
@@ -214,29 +245,33 @@ const slideAngles = [0,
 function updatePlayer(dt) {
   player.v = 0
 
-  // Cursor keys or D-pad input
+  // Query cursor keys & gamepad d-pad
   const dleft  = (keys[37] || gamepad.button13);
   const dright = (keys[39] || gamepad.button14);
   const dup    = (keys[38] || gamepad.button11);
   const ddown  = (keys[40] || gamepad.button12);
   const dir = (dup ? 'u' : (ddown ? 'd' : '')) +
               (dleft ? 'l' : (dright ? 'r' : ''));
+
   if (dir) {
+    // Cursor keys or gamepad d-pad input
     player.v = player.maxSpeed;
     player.r = directions[dir];
-  }
+  } else if (touch.active) {
+    // Chase mouse on button down or spacebar
+    const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (touch.x / camera.z);
+    const my = player.y - (ctx.canvas.height / 2 / camera.z) + (touch.y / camera.z);
 
-  // Chase mouse on button down or spacebar
-  if (mouse.down || keys[32]) {
+    player.v = player.maxSpeed; // TODO: velocity from pointer distance?
+    player.r = Math.atan2(my - player.y, mx - player.x)
+  } else if (mouse.down || keys[32]) {
     const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (mouse.x / camera.z);
     const my = player.y - (ctx.canvas.height / 2 / camera.z) + (mouse.y / camera.z);
 
     player.v = player.maxSpeed; // TODO: velocity from pointer distance?
     player.r = Math.atan2(my - player.y, mx - player.x)
-  }
-
-  // Gamepad analog stick for rotation & velocity
-  if (typeof(gamepad.axis0) != 'undefined' && typeof(gamepad.axis1) != 'undefined') {
+  } else if (typeof(gamepad.axis0) != 'undefined' && typeof(gamepad.axis1) != 'undefined') {
+    // Gamepad analog stick for rotation & velocity
     const jx = Math.abs(gamepad.axis0) > 0.1 ? gamepad.axis0 : 0;
     const jy = Math.abs(gamepad.axis1) > 0.1 ? gamepad.axis1 : 0;
 
@@ -350,6 +385,10 @@ function initDebugGUI() {
     if (!keys) { keys = Object.keys(obj); }
     keys.forEach(k => folder.add(obj, k).listen());
   };
+
+  const ftouch = gui.addFolder('touch');
+  ftouch.open();
+  listenAll(ftouch, touch);
 
   const fplayer = gui.addFolder('player');
   fplayer.open();
