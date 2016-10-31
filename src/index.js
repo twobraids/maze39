@@ -3,6 +3,7 @@
  *
  * TODO:
  *
+ * - pre-loader & progress spinner
  * - wall sliding!
  * - mini-map?
  * - progress breadcrumbs, save to localstorage?
@@ -20,16 +21,12 @@ const DEBUG = true;
 const TICK = 1000 / 60;
 const PASSABLE_MIN = 67;
 
-const ctx = document.getElementById('viewport').getContext('2d');
-
 const map = {
   src: 'mazes/Firefox.png',
   startX: 499, startY: 432,
-  width: 4000, height: 4000
+  width: 4000, height: 4000,
+  data: []
 };
-
-map.img = new Image();
-map.img.src = map.src;
 
 const keys = { };
 const gamepad = { };
@@ -37,12 +34,13 @@ const mouse = { x: 0, y: 0, down: false };
 const touch = { active: false, x: 0, y: 0 };
 const camera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
 const player = { x: 0, y: 0, r: 0, v: 0, maxSpeed: 60 / 1000 };
-
+const updateTimer = { };
+const drawTimer = { };
 const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '' };
+
 let gui, statsDraw, statsUpdate;
 
-const updateTimer = {};
-const drawTimer = {};
+const ctx = document.getElementById('viewport').getContext('2d');
 
 function init() {
   expandCanvas();
@@ -95,6 +93,23 @@ function initTimer(timer) {
   timer.accum = 0;
 }
 
+function initMap(cb) {
+  // Load the map image
+  map.img = new Image();
+  map.img.src = map.src;
+
+  // HACK: Render the whole map at original scale and grab image data array to
+  // consult for navigation. Seems wasteful of memory, but performs way better
+  // than constant getImageData() calls
+  ctx.canvas.width = map.width;
+  ctx.canvas.height = map.height;
+  map.img.addEventListener('load', e => {
+    ctx.drawImage(map.img, 0, 0);
+    map.data = ctx.getImageData(0, 0, map.width, map.height).data;
+    cb();
+  });
+}
+
 function handleTimer(type, now, timer, fixed, cb) {
   if (!timer.last) { timer.last = now; }
   const delta = Math.min(now - timer.last, TICK * 3);
@@ -127,8 +142,8 @@ function updateGamepads(dt) {
 }
 
 function clearCanvas(dt) {
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  // ctx.fillStyle = "#000";
+  // ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
 function followAndZoom(dt) {
@@ -236,7 +251,8 @@ const directions = {
   dr: Math.PI * (1/4)
 };
 
-const slideAngles = [0,
+const slideAngles = [
+  0,
   Math.PI * 1/6, -Math.PI * 1/6,
   Math.PI * 1/4, -Math.PI * 1/4,
   Math.PI * 1/3, -Math.PI * 1/3
@@ -323,12 +339,6 @@ function updatePlayerZoom(dt) {
 
 function getPixelAt(x, y) {
   /*
-  peekCtx.canvas.width = 1;
-  peekCtx.canvas.height = 1;
-  peekCtx.drawImage(map.img, Math.ceil(x), Math.ceil(y), 1, 1)
-  console.log('PEEK', x, y, peekCtx.getImageData(0, 0, 1, 1).data);
-  return peekCtx.getImageData(0, 0, 1, 1).data;
-  */
   const ox = (ctx.canvas.width / 2) - (player.x * camera.z);
   const oy = (ctx.canvas.height / 2) - (player.y * camera.z);
   return ctx.getImageData(
@@ -336,6 +346,9 @@ function getPixelAt(x, y) {
     Math.ceil(oy + y * camera.z),
     1, 1
   ).data;
+  */
+  const pos = 4 * (Math.ceil(x) + (Math.ceil(y) * map.width));
+  return map.data.slice(pos, pos + 4);
 }
 
 function getPixelAvgAt(x, y) {
@@ -418,4 +431,4 @@ function updateDebug(dt) {
   });
 }
 
-window.addEventListener('load', init);
+window.addEventListener('load', () => initMap(init));
