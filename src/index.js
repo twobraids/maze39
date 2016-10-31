@@ -2,12 +2,19 @@
  * fx-maze
  *
  * TODO:
+ *
+ * - wall sliding!
  * - mini-map?
- * - Cut maze up into tiles, render & load only visible tiles?
- * - Websocket server to show other players?
+ * - progress breadcrumbs, save to localstorage?
+ * - solution hints?
+ * - Cut maze up into tiles, render & load only visible tiles
+ * - Service Worker to use pre-loaded cached map tiles
+ * - Websocket server to show other players if online, option to not show
  */
 import Dat from 'dat-gui';
 import Stats from 'stats.js';
+
+import { requestAnimFrame } from './lib/utils';
 
 const DEBUG = true;
 const TICK = 1000 / 60;
@@ -17,9 +24,7 @@ const ctx = document.getElementById('viewport').getContext('2d');
 
 const map = {
   src: 'mazes/Firefox.png',
-  // src: 'mazes/Firefox.solution.png',
   startX: 499, startY: 432,
-  // startX: 525, startY: 641,
   width: 4000, height: 4000
 };
 
@@ -29,63 +34,78 @@ map.img.src = map.src;
 const keys = { };
 const gamepad = { };
 const mouse = { x: 0, y: 0, down: false };
-const camera = { x: 0, y: 0, z: 1, zmin: 1, zmax: 4, zdelay: 0 };
-const player = {
-  position: { x: 0, y: 0 },
-  motion: { maxSpeed: 2, accel: 0.01, dx: 0, dy: 0 }
-};
+const camera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
+const player = { x: 0, y: 0, r: 0, v: 0, maxSpeed: 60 / 1000 };
 
 const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '' };
 let gui, statsDraw, statsUpdate;
 
-let lastUpdate = Date.now();
-let lastDraw = null;
+const updateTimer = {};
+const drawTimer = {};
 
 function init() {
+  expandCanvas();
+
   initUIEvents();
   initPlayer();
   initDebugGUI();
+  initTimer(updateTimer);
+  initTimer(drawTimer);
 
-  expandCanvas();
   setTimeout(update, TICK);
-  window.requestAnimationFrame(draw);
+  requestAnimFrame(draw);
 }
 
 function update() {
-  const now = Date.now();
-  const dt = now - lastUpdate;
-  lastUpdate = now;
+  handleTimer('update', Date.now(), updateTimer, true, dt => {
+    if (DEBUG) { statsUpdate.begin(); }
 
-  if (DEBUG) { statsUpdate.begin(); }
+    updateGamepads(dt);
+    updatePlayer(dt);
+    updateDebug();
 
-  updateGamepads(dt);
-  updatePlayer(dt);
-  updateDebug();
-
-  if (DEBUG) { statsUpdate.end(); }
-
+    if (DEBUG) { statsUpdate.end(); }
+  });
   setTimeout(update, TICK);
 }
 
 function draw(ts) {
-  if (!lastDraw) { lastDraw = ts; }
-  const dt = ts - lastDraw;
-  lastDraw = ts;
+  handleTimer('draw', ts, drawTimer, false, dt => {
+    if (DEBUG) { statsDraw.begin(); }
 
-  if (DEBUG) { statsDraw.begin(); }
+    clearCanvas();
+    ctx.save();
 
-  ctx.save();
-  clearCanvas();
-  drawMaze(dt);
-  followAndZoom(dt);
-  drawPlayer(dt);
-  ctx.restore();
+    drawMaze(dt);
+    followAndZoom(dt);
+    drawPlayer(dt);
 
-  drawDebug(dt);
+    ctx.restore();
 
-  if (DEBUG) { statsDraw.end(); }
+    drawDebug(dt);
 
-  window.requestAnimationFrame(draw);
+    if (DEBUG) { statsDraw.end(); }
+  });
+  requestAnimFrame(draw);
+}
+
+function initTimer(timer) {
+  timer.last = null;
+  timer.accum = 0;
+}
+
+function handleTimer(type, now, timer, fixed, cb) {
+  if (!timer.last) { timer.last = now; }
+  const delta = Math.min(now - timer.last, TICK * 3);
+  timer.last = now;
+
+  if (!fixed) { return cb(delta); }
+
+  timer.accum += delta;
+  while (timer.accum > TICK) {
+    cb(TICK);
+    timer.accum -= TICK;
+  }
 }
 
 function updateGamepads(dt) {
@@ -112,8 +132,8 @@ function clearCanvas(dt) {
 
 function followAndZoom(dt) {
   ctx.translate(
-    (ctx.canvas.width / 2) - (player.position.x * camera.z),
-    (ctx.canvas.height / 2) - (player.position.y * camera.z)
+    (ctx.canvas.width / 2) - (player.x * camera.z),
+    (ctx.canvas.height / 2) - (player.y * camera.z)
   );
   ctx.scale(camera.z, camera.z);
 }
@@ -160,10 +180,9 @@ function drawDebug(dt) {
 }
 
 function drawMaze(dt) {
-  // ctx.drawImage(map.img, 0, 0, map.width, map.height);
   ctx.drawImage(map.img,
-    player.position.x - (ctx.canvas.width / 2 / camera.z),
-    player.position.y - (ctx.canvas.height / 2 / camera.z),
+    player.x - (ctx.canvas.width / 2 / camera.z),
+    player.y - (ctx.canvas.height / 2 / camera.z),
     ctx.canvas.width / camera.z,
     ctx.canvas.height / camera.z,
     0, 0, ctx.canvas.width, ctx.canvas.height
@@ -171,67 +190,95 @@ function drawMaze(dt) {
 }
 
 function initPlayer() {
-  player.position.x = map.startX;
-  player.position.y = map.startY;
+  player.x = map.startX;
+  player.y = map.startY;
 }
 
+const directions = {
+  r: 0,
+  ur: Math.PI * (7/4),
+  u: Math.PI * (3/2),
+  ul: Math.PI * (5/4),
+  l: Math.PI,
+  dl: Math.PI * (3/4),
+  d: Math.PI * (1/2),
+  dr: Math.PI * (1/4)
+};
+
+const slideAngles = [0,
+  Math.PI * 1/6, -Math.PI * 1/6,
+  Math.PI * 1/4, -Math.PI * 1/4,
+  Math.PI * 1/3, -Math.PI * 1/3
+];
+
 function updatePlayer(dt) {
-  let ox = player.position.x;
-  let oy = player.position.y;
-  let dx = player.motion.dx;
-  let dy = player.motion.dy;
+  player.v = 0
 
-  if (keys[37] || gamepad.button13) { // left
-    dx = 0 - player.motion.maxSpeed;
-  } else if (keys[39] || gamepad.button14) { // right
-    dx = player.motion.maxSpeed;
-  } else {
-    dx = 0;
+  // Cursor keys or D-pad input
+  const dleft  = (keys[37] || gamepad.button13);
+  const dright = (keys[39] || gamepad.button14);
+  const dup    = (keys[38] || gamepad.button11);
+  const ddown  = (keys[40] || gamepad.button12);
+  const dir = (dup ? 'u' : (ddown ? 'd' : '')) +
+              (dleft ? 'l' : (dright ? 'r' : ''));
+  if (dir) {
+    player.v = player.maxSpeed;
+    player.r = directions[dir];
   }
 
-  if (keys[38] || gamepad.button11) { // up
-    dy = 0 - player.motion.maxSpeed;
-  } else if (keys[40] || gamepad.button12) { // down
-    dy = player.motion.maxSpeed;
-  } else {
-    dy = 0;
+  // Chase mouse on button down or spacebar
+  if (mouse.down || keys[32]) {
+    const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (mouse.x / camera.z);
+    const my = player.y - (ctx.canvas.height / 2 / camera.z) + (mouse.y / camera.z);
+
+    player.v = player.maxSpeed; // TODO: velocity from pointer distance?
+    player.r = Math.atan2(my - player.y, mx - player.x)
   }
 
-  if (gamepad.axis0 && Math.abs(gamepad.axis0) > 0.1) {
-    dx = player.motion.maxSpeed * gamepad.axis0;
-  }
+  // Gamepad analog stick for rotation & velocity
+  if (typeof(gamepad.axis0) != 'undefined' && typeof(gamepad.axis1) != 'undefined') {
+    const jx = Math.abs(gamepad.axis0) > 0.1 ? gamepad.axis0 : 0;
+    const jy = Math.abs(gamepad.axis1) > 0.1 ? gamepad.axis1 : 0;
 
-  if (gamepad.axis1 && Math.abs(gamepad.axis1) > 0.1) {
-    dy = player.motion.maxSpeed * gamepad.axis1;
+    if (Math.abs(jx) > 0 || Math.abs(jy) > 0) {
+      player.v = player.maxSpeed; // TODO: velocity from stick intensity?
+      player.r = Math.atan2(gamepad.axis1, gamepad.axis0)
+    }
   }
-
-  player.motion.dx = dx;
-  player.motion.dy = dy;
 
   updatePlayerZoom(dt);
 
-  if (!isPassableAt(ox + dx, oy)) {
-    dx = 0;
+  let dx = 0;
+  let dy = 0;
+
+  // Try deflecting at several side angles on collision with a wall.
+  for (let idx = 0; idx < slideAngles.length; idx++) {
+    const r = player.r + slideAngles[idx];
+
+    let tdx = Math.cos(r) * player.v * dt;
+    let tdy = Math.sin(r) * player.v * dt;
+
+    if (isPassableAt(player.x + tdx, player.y + tdy)) {
+      dx = tdx;
+      dy = tdy;
+      break;
+    }
   }
 
-  if (!isPassableAt(ox, oy + dy)) {
-    dy = 0;
-  }
+  player.x += dx;
+  player.y += dy;
 
-  player.position.x += dx;
-  player.position.y += dy;
-
-  debugOut.avg = getPixelAvgAt(player.position.x, player.position.y);
+  debugOut.avg = getPixelAvgAt(player.x, player.y);
 }
 
 function updatePlayerZoom(dt) {
-  if (player.motion.dx !== 0 || player.motion.dy !== 0) {
-    camera.zdelay = 20;
+  if (player.v !== 0) {
+    camera.zdelay = camera.zdelaymax;
     camera.z += 0.3;
     if (camera.z > camera.zmax) { camera.z = camera.zmax; }
   } else {
     if (camera.zdelay > 0) {
-      camera.zdelay -= 1;
+      camera.zdelay -= dt;
       return;
     }
     camera.z -= 0.2;
@@ -240,11 +287,18 @@ function updatePlayerZoom(dt) {
 }
 
 function getPixelAt(x, y) {
-  const ox = (ctx.canvas.width / 2) - (player.position.x * camera.z);
-  const oy = (ctx.canvas.height / 2) - (player.position.y * camera.z);
+  /*
+  peekCtx.canvas.width = 1;
+  peekCtx.canvas.height = 1;
+  peekCtx.drawImage(map.img, Math.ceil(x), Math.ceil(y), 1, 1)
+  console.log('PEEK', x, y, peekCtx.getImageData(0, 0, 1, 1).data);
+  return peekCtx.getImageData(0, 0, 1, 1).data;
+  */
+  const ox = (ctx.canvas.width / 2) - (player.x * camera.z);
+  const oy = (ctx.canvas.height / 2) - (player.y * camera.z);
   return ctx.getImageData(
-    Math.floor(ox + x * camera.z),
-    Math.floor(oy + y * camera.z),
+    Math.ceil(ox + x * camera.z),
+    Math.ceil(oy + y * camera.z),
     1, 1
   ).data;
 }
@@ -264,17 +318,17 @@ function drawPlayer(dt) {
 
   ctx.beginPath();
   ctx.lineWidth = 0.5;
-  ctx.arc(player.position.x, player.position.y, 3, 0, Math.PI * 2);
+  ctx.arc(player.x, player.y, 3, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.beginPath();
   ctx.lineWidth = 2;
-  ctx.arc(player.position.x, player.position.y, 9, 0, Math.PI * 2);
+  ctx.arc(player.x, player.y, 9, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.beginPath();
   ctx.lineWidth = 4;
-  ctx.arc(player.position.x, player.position.y, 27, 0, Math.PI * 2);
+  ctx.arc(player.x, player.y, 27, 0, Math.PI * 2);
   ctx.stroke();
 }
 
@@ -299,8 +353,7 @@ function initDebugGUI() {
 
   const fplayer = gui.addFolder('player');
   fplayer.open();
-  listenAll(fplayer, player.position, ['x', 'y']);
-  listenAll(fplayer, player.motion, ['dx', 'dy']);
+  listenAll(fplayer, player, ['x', 'y', 'r', 'v']);
 
   const fcamera = gui.addFolder('camera');
   fcamera.open();
@@ -325,15 +378,5 @@ function updateDebug(dt) {
     gamepadAxis1: gamepad.axis1
   });
 }
-
-// shim layer with setTimeout fallback
-window.requestAnimFrame = (function(){
-  return  window.requestAnimationFrame       ||
-          window.webkitRequestAnimationFrame ||
-          window.mozRequestAnimationFrame    ||
-          function( callback ){
-            window.setTimeout(callback, 1000 / 60);
-          };
-})();
 
 window.addEventListener('load', init);
