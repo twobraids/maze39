@@ -274,13 +274,14 @@ function updatePlayer(dt) {
     player.v = player.maxSpeed;
     player.r = directions[dir];
   } else if (touch.active) {
-    // Chase mouse on button down or spacebar
+    // Chase touch when active
     const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (touch.x / camera.z);
     const my = player.y - (ctx.canvas.height / 2 / camera.z) + (touch.y / camera.z);
 
     player.v = player.maxSpeed; // TODO: velocity from pointer distance?
     player.r = Math.atan2(my - player.y, mx - player.x)
   } else if (mouse.down || keys[32]) {
+    // Chase mouse on button down or spacebar
     const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (mouse.x / camera.z);
     const my = player.y - (ctx.canvas.height / 2 / camera.z) + (mouse.y / camera.z);
 
