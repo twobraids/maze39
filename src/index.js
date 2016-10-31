@@ -142,8 +142,8 @@ function updateGamepads(dt) {
 }
 
 function clearCanvas(dt) {
-  // ctx.fillStyle = "#000";
-  // ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
 function followAndZoom(dt) {
