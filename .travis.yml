@@ -9,7 +9,7 @@ install:
   - git config user.email "$COMMIT_AUTHOR_EMAIL"
 before_script:
   - rm -rf dist
-  - git checkout https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG} dist
+  - git clone -b gh-pages https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG} dist
   - cd dist && git checkout gh-pages
 script:
   - npm build
@@ -18,6 +18,3 @@ after_success:
     git add . &&
     git ci -m'Travis build for ${TRAVIS_COMMIT}' &&
     git push --force
-env:
-  global:
-    secure: aWPH59ONEP1g2JaTDcF4DArqaC1gpPrBFRuHld69qxQ5qX0QPiWVqA5SbbTVjzwOc+ebnoifyOth8wn7thsR0c8GlxRPXA6z0XX2yiiBk1NK0HW/RZEpunv8pE24Z9LYIR5+nDF7TN4QgRYlmLFSEbDNVK6FJXkZUozaaAfMCTxCQrgYfZRxJYSMtBNuJ3Mk30miguhIdMxbU4yXPU0SQOMv27vKZICuCc1S9WNLj+mrl6yE8ZdmHAsubljqc8berShbfNnWc/AUQiV2/82DblDr1iQH2LG49k/NgddSX19VcdKascdmq289cxjmsXC6Iq6OqpjPjtZlE54l000NTJZnTId9R/alreYPuJfF4kY16DYswRdINMXNz23uiORXT+xvhY3+zc763CifJS9sHrSbtvL6/w0QFmxBjhVhgwc51np0nauMu7NfTu4TcLIIuJyCgKjNXGePxbd+9bjuRNHcyhvyxn709mel7l71qFQrZTeFnBeZbUbOIxcjocNRPWgrqOOQUiQXT4j7MVb2ed5XM0IMK5Qz05g4Oc+v0MkKMZkUwzxwUKylvK3S8Zj78m/Iobr+jRxWKi6Vp90FQRP1Kfk0I3s/ekqSsMe7LuyfsWsYiP3c+mK2mI5AGpOYSNwrGvKkpGYYYQ+AGbroz4T0lyKpo1J3PmVjOVikHMs=
