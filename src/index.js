@@ -259,6 +259,13 @@ const slideAngles = [
 ];
 
 function updatePlayer(dt) {
+  updatePlayerFromControls(dt)
+  updatePlayerZoom(dt);
+  updatePlayerMotion(dt);
+}
+
+function updatePlayerFromControls(dt) {
+  // Start from zero velocity if no controls are applied
   player.v = 0
 
   // Query cursor keys & gamepad d-pad
@@ -297,9 +304,24 @@ function updatePlayer(dt) {
       player.r = Math.atan2(gamepad.axis1, gamepad.axis0)
     }
   }
+}
 
-  updatePlayerZoom(dt);
+function updatePlayerZoom(dt) {
+  if (player.v !== 0) {
+    camera.zdelay = camera.zdelaymax;
+    camera.z += 0.3;
+    if (camera.z > camera.zmax) { camera.z = camera.zmax; }
+  } else {
+    if (camera.zdelay > 0) {
+      camera.zdelay -= dt;
+      return;
+    }
+    camera.z -= 0.2;
+    if (camera.z < camera.zmin) { camera.z = camera.zmin; }
+  }
+}
 
+function updatePlayerMotion(dt) {
   let dx = 0;
   let dy = 0;
 
@@ -321,21 +343,6 @@ function updatePlayer(dt) {
   player.y += dy;
 
   debugOut.avg = getPixelAvgAt(player.x, player.y);
-}
-
-function updatePlayerZoom(dt) {
-  if (player.v !== 0) {
-    camera.zdelay = camera.zdelaymax;
-    camera.z += 0.3;
-    if (camera.z > camera.zmax) { camera.z = camera.zmax; }
-  } else {
-    if (camera.zdelay > 0) {
-      camera.zdelay -= dt;
-      return;
-    }
-    camera.z -= 0.2;
-    if (camera.z < camera.zmin) { camera.z = camera.zmin; }
-  }
 }
 
 function getPixelAt(x, y) {
