@@ -19,10 +19,12 @@ import { requestAnimFrame } from './lib/utils';
 
 const DEBUG = true;
 const TICK = 1000 / 60;
-const PASSABLE_MIN = 67;
 
+// TODO: Load this from an external JSON URL for Issue #13
 const map = {
   src: 'mazes/Firefox.png',
+  pathSrc: 'mazes/Firefox.path.png',
+  passableMin: 67,
   startX: 499, startY: 432,
   width: 4000, height: 4000,
   data: []
@@ -94,18 +96,17 @@ function initTimer(timer) {
 }
 
 function initMap(cb) {
-  // Load the map image
+  // HACK: Render the whole path map at original scale and grab image data
+  // array to consult for navigation. Seems wasteful of memory, but performs
+  // way better than constant getImageData() calls
   map.img = new Image();
-  map.img.src = map.src;
-
-  // HACK: Render the whole map at original scale and grab image data array to
-  // consult for navigation. Seems wasteful of memory, but performs way better
-  // than constant getImageData() calls
-  ctx.canvas.width = map.width;
-  ctx.canvas.height = map.height;
+  map.img.src = map.pathSrc;
   map.img.addEventListener('load', e => {
+    ctx.canvas.width = map.width;
+    ctx.canvas.height = map.height;
     ctx.drawImage(map.img, 0, 0);
     map.data = ctx.getImageData(0, 0, map.width, map.height).data;
+    map.img.src = map.src;
     cb();
   });
 }
@@ -365,7 +366,7 @@ function getPixelAvgAt(x, y) {
 }
 
 function isPassableAt(x, y) {
-  return getPixelAvgAt(x, y) > PASSABLE_MIN;
+  return getPixelAvgAt(x, y) > map.passableMin;
 }
 
 function drawPlayer(dt) {

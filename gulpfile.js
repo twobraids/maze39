@@ -1,6 +1,7 @@
 const gulp = require('gulp');
 const connect = require('gulp-connect');
 const rollup = require('rollup').rollup;
+const imagemin = require('gulp-imagemin');
 const ghPages = require('gulp-gh-pages');
 
 const DEBUG = process.env.NODE_ENV === 'development';
@@ -32,6 +33,9 @@ gulp.task('build:js', () => rollup({
 gulp.task('watch:js', () => gulp.watch('./src/**/*.js', ['build:js']));
 
 gulp.task('build:images', () => gulp.src('./src/**/*.png')
+  .pipe(imagemin([
+    imagemin.optipng({ optimizationLevel: 5 })
+  ]))
   .pipe(gulp.dest('./dist'))
   .pipe(connect.reload()));
 
