@@ -7,16 +7,14 @@ branches:
     - master
 install:
   - npm install
+  - git config --global user.name "Travis CI" &&
+  - git config --global user.email "$COMMIT_AUTHOR_EMAIL" &&
 before_script:
-  - rm -rf dist
-  - git clone --depth 10 --branch gh-pages https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG} dist
-  - cd dist &&
-    git config user.name "Travis CI" &&
-    git config user.email "$COMMIT_AUTHOR_EMAIL"
+  - git clone --depth 10 --branch gh-pages https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG} /home/travis/build/${TRAVIS_REPO_SLUG}/dist
 script:
   - npm run build
 after_success:
-  - cd dist &&
+  - cd /home/travis/build/${TRAVIS_REPO_SLUG}/dist &&
     git add . &&
     git commit -m'Travis build for ${TRAVIS_COMMIT}' &&
     git push --force
