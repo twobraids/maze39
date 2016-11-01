@@ -1,5 +1,7 @@
 # fx-maze
 
+[![Build Status](https://travis-ci.org/lmorchard/fx-maze.svg?branch=master)](https://travis-ci.org/lmorchard/fx-maze)
+
 this would like to be a-maze-ing
 
 ## hacking
@@ -15,7 +17,11 @@ open http://localhost:9000
 
 ## deployment
 
-Deployment to my gh-pages branch looks like this:
+The main repo ([lmorchard/fx-maze](https://github.com/lmorchard/fx-maze/))
+should automatically build & deploy via Travis-CI to [gh-pages](https://lmorchard.github.io/fx-maze/)
+on pushes to the master branch.
+
+Manual deployment to a local gh-pages branch looks like this:
 ```
 gulp build
 gulp deploy
