@@ -101,14 +101,16 @@ function initMap(cb) {
   // way better than constant getImageData() calls
   map.img = new Image();
   map.img.src = map.pathSrc;
-  map.img.addEventListener('load', e => {
+  const loadPathImg = e => {
     ctx.canvas.width = map.width;
     ctx.canvas.height = map.height;
     ctx.drawImage(map.img, 0, 0);
     map.data = ctx.getImageData(0, 0, map.width, map.height).data;
+    map.img.removeEventListener('load', loadPathImg);
     map.img.src = map.src;
     cb();
-  });
+  };
+  map.img.addEventListener('load', loadPathImg);
 }
 
 function handleTimer(type, now, timer, fixed, cb) {
