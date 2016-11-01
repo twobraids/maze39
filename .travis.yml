@@ -9,7 +9,8 @@ install:
   - git config user.email "$COMMIT_AUTHOR_EMAIL"
 before_script:
   - rm -rf dist
-  - git checkout -b gh-pages https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG} dist
+  - git checkout https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG} dist
+  - cd dist && git checkout gh-pages
 script:
   - npm build
 after_success:
