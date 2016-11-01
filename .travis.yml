@@ -9,10 +9,9 @@ install:
   - git config user.email "$COMMIT_AUTHOR_EMAIL"
 before_script:
   - rm -rf dist
-  - git clone -b gh-pages https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG} dist
-  - cd dist && git checkout gh-pages
+  - git clone --depth 10 --branch gh-pages https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG} dist
 script:
-  - npm build
+  - npm run build
 after_success:
   - cd dist &&
     git add . &&
