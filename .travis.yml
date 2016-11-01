@@ -7,11 +7,12 @@ branches:
     - master
 install:
   - npm install
-  - git config user.name "Travis CI"
-  - git config user.email "$COMMIT_AUTHOR_EMAIL"
 before_script:
   - rm -rf dist
   - git clone --depth 10 --branch gh-pages https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG} dist
+  - cd dist &&
+    git config user.name "Travis CI" &&
+    git config user.email "$COMMIT_AUTHOR_EMAIL"
 script:
   - npm run build
 after_success:
