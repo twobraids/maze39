@@ -32,7 +32,7 @@
     "rollup-watch": "^2.5.0"
   },
   "dependencies": {
-    "dat.gui": "git+https://github.com/dataarts/dat.gui.git",
+    "dat-gui": "^0.5.0",
     "stats.js": "git+https://github.com/mrdoob/stats.js.git"
   }
 }
