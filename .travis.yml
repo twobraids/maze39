@@ -16,5 +16,5 @@ script:
 after_success:
   - cd /home/travis/build/${TRAVIS_REPO_SLUG}/dist &&
     git add . &&
-    git commit -m'Travis build for ${TRAVIS_COMMIT}' &&
+    git commit -m"Travis build for ${TRAVIS_COMMIT}" &&
     git push --force
