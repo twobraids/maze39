@@ -44,7 +44,27 @@ let gui, statsDraw, statsUpdate;
 
 const ctx = document.getElementById('viewport').getContext('2d');
 
+function load() {
+  // HACK: Render the whole path map at original scale and grab image data
+  // array to consult for navigation. Seems wasteful of memory, but performs
+  // way better than constant getImageData() calls
+  map.img = new Image();
+  map.img.src = map.pathSrc;
+  const loadPathImg = e => {
+    ctx.canvas.width = map.width;
+    ctx.canvas.height = map.height;
+    ctx.drawImage(map.img, 0, 0);
+    map.data = ctx.getImageData(0, 0, map.width, map.height).data;
+    map.img.removeEventListener('load', loadPathImg);
+    map.img.src = map.src;
+    init();
+  };
+  map.img.addEventListener('load', loadPathImg);
+}
+
 function init() {
+  document.body.className = 'loaded';
+
   expandCanvas();
 
   initUIEvents();
@@ -93,24 +113,6 @@ function draw(ts) {
 function initTimer(timer) {
   timer.last = null;
   timer.accum = 0;
-}
-
-function initMap(cb) {
-  // HACK: Render the whole path map at original scale and grab image data
-  // array to consult for navigation. Seems wasteful of memory, but performs
-  // way better than constant getImageData() calls
-  map.img = new Image();
-  map.img.src = map.pathSrc;
-  const loadPathImg = e => {
-    ctx.canvas.width = map.width;
-    ctx.canvas.height = map.height;
-    ctx.drawImage(map.img, 0, 0);
-    map.data = ctx.getImageData(0, 0, map.width, map.height).data;
-    map.img.removeEventListener('load', loadPathImg);
-    map.img.src = map.src;
-    cb();
-  };
-  map.img.addEventListener('load', loadPathImg);
 }
 
 function handleTimer(type, now, timer, fixed, cb) {
@@ -442,4 +444,4 @@ function updateDebug(dt) {
   });
 }
 
-window.addEventListener('load', () => initMap(init));
+window.addEventListener('load', load);
