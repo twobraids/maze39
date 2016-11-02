@@ -1,16 +1,7 @@
 /**
  * fx-maze
  *
- * TODO:
- *
- * - pre-loader & progress spinner
- * - wall sliding!
- * - mini-map?
- * - progress breadcrumbs, save to localstorage?
- * - solution hints?
- * - Cut maze up into tiles, render & load only visible tiles
- * - Service Worker to use pre-loaded cached map tiles
- * - Websocket server to show other players if online, option to not show
+ * TODO: see https://github.com/lmorchard/fx-maze/issues
  */
 import Dat from 'dat-gui';
 import Stats from 'stats.js';
@@ -46,11 +37,11 @@ const gamepad = { };
 const mouse = { x: 0, y: 0, down: false };
 const touch = { active: false, x: 0, y: 0 };
 const camera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
-const player = { 
-  x: 0, 
-  y: 0, 
-  r: 0, 
-  v: 0, 
+const player = {
+  x: 0,
+  y: 0,
+  r: 0,
+  v: 0,
   maxSpeed: 60 / 1000,
   breadcrumb_stack: new Stack()
 };
@@ -314,7 +305,7 @@ function updatePlayerFromControls(dt) {
   const drop_breadcrumb = keys[190] || false;
   // the '<backspace>' key jumps the player to the most recent breadcrumb
   const jump_to_breadcrumb = keys[8] || false;
-   
+
   if (drop_breadcrumb) {
     delete keys[190]; // ensure keystroke happens only once
     player.breadcrumb_stack.push([player.x, player.y]);
