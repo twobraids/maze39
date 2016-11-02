@@ -17,6 +17,17 @@ import Stats from 'stats.js';
 
 import { requestAnimFrame } from './lib/utils';
 
+// a simple minded stack structure used to store breadcrumbs
+function Stack() {
+  this.stack = new Array();
+  this.pop = function(){
+    return this.stack.pop();
+  }
+  this.push = function(a_thing){
+    return this.stack.push(a_thing);
+  }
+}
+
 const DEBUG = true;
 const TICK = 1000 / 60;
 
@@ -35,7 +46,14 @@ const gamepad = { };
 const mouse = { x: 0, y: 0, down: false };
 const touch = { active: false, x: 0, y: 0 };
 const camera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
-const player = { x: 0, y: 0, r: 0, v: 0, maxSpeed: 60 / 1000 };
+const player = { 
+  x: 0, 
+  y: 0, 
+  r: 0, 
+  v: 0, 
+  maxSpeed: 60 / 1000,
+  breadcrumb_stack: new Stack()
+};
 const updateTimer = { };
 const drawTimer = { };
 const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '' };
@@ -99,6 +117,7 @@ function draw(ts) {
 
     drawMaze(dt);
     followAndZoom(dt);
+    drawBreadCrumbs(dt);
     drawPlayer(dt);
 
     ctx.restore();
@@ -240,6 +259,17 @@ function drawMaze(dt) {
   );
 }
 
+function drawBreadCrumbs(dt) {
+  for (let i = 0; i < player.breadcrumb_stack.stack.length; i++) {
+    let [x, y] = player.breadcrumb_stack.stack[i];
+    ctx.strokeStyle = '#fff';
+    ctx.fillStyle = '#fff';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText(i.toString(), x, y);
+   }
+}
+
 function initPlayer() {
   player.x = map.startX;
   player.y = map.startY;
@@ -264,7 +294,7 @@ const slideAngles = [
 ];
 
 function updatePlayer(dt) {
-  updatePlayerFromControls(dt)
+  updatePlayerFromControls(dt);
   updatePlayerZoom(dt);
   updatePlayerMotion(dt);
 }
@@ -280,8 +310,20 @@ function updatePlayerFromControls(dt) {
   const ddown  = (keys[40] || gamepad.button12);
   const dir = (dup ? 'u' : (ddown ? 'd' : '')) +
               (dleft ? 'l' : (dright ? 'r' : ''));
-
-  if (dir) {
+  // the '.' key drops a numbered breadcrumb
+  const drop_breadcrumb = keys[190] || false;
+  // the '<backspace>' key jumps the player to the most recent breadcrumb
+  const jump_to_breadcrumb = keys[8] || false;
+   
+  if (drop_breadcrumb) {
+    delete keys[190]; // ensure keystroke happens only once
+    player.breadcrumb_stack.push([player.x, player.y]);
+  } else if (jump_to_breadcrumb) {
+    delete keys[8]; // ensure keystroke happens only once
+    if (player.breadcrumb_stack.stack.length > 0) {
+      [player.x, player.y] = player.breadcrumb_stack.pop();
+    }
+  } else if (dir) {
     // Cursor keys or gamepad d-pad input
     player.v = player.maxSpeed;
     player.r = directions[dir];
