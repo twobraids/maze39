@@ -25,7 +25,6 @@ const TICK = 1000 / 60;
 // TODO: Load this from an external JSON URL for Issue #13
 const map = {
   baseMapSrc: 'mazes/Firefox.png',
-  pathSrc: 'mazes/Firefox.path.png',
   solutionSrc: 'mazes/Firefox.green.png',
   passableMin: 67,
   startX: 499, startY: 432,
@@ -48,11 +47,13 @@ const player = {
   breadcrumb_stack: new Stack(),
   color: 4095,
   colorHintingTimer: false,
-  colorHinting: false
+  colorHinting: true,
+  used_paths: [],
+  current_path: []
 };
 const updateTimer = { };
 const drawTimer = { };
-const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '' };
+const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '', lars_sez: '' };
 
 let gui, statsDraw, statsUpdate;
 
@@ -68,27 +69,28 @@ function load() {
   map.baseMapImg = new Image();
   map.baseMapImg.src = map.baseMapSrc;
 
-  map.pathMapImg = new Image();
-  map.pathMapImg.src = map.pathSrc;
-
   map.solutionImg = new Image();
   map.solutionImg.src = map.solutionSrc;
 
   const loadBaseMapImg = e => {
-    ctx.drawImage(map.pathMapImg, 0, 0);
-    map.pathData = ctx.getImageData(0, 0, map.width, map.height).data;
+    //ctx.drawImage(map.pathMapImg, 0, 0);
 
     ctx.drawImage(map.solutionImg, 0, 0);
     map.solutionData = ctx.getImageData(0, 0, map.width, map.height).data;
 
     ctx.drawImage(map.baseMapImg, 0, 0);
+    map.pathData = ctx.getImageData(0, 0, map.width, map.height).data;
 
     map.baseMapImg.removeEventListener('load', loadBaseMapImg);
+
+    player.preferredMap = map.baseMapImg;
+
 
     init();
   }
 
   map.baseMapImg.addEventListener('load', loadBaseMapImg);
+
 
 }
 
@@ -129,6 +131,7 @@ function draw(ts) {
 
     drawMaze(dt);
     followAndZoom(dt);
+    drawUsedPaths(dt);
     drawBreadCrumbs(dt);
     drawPlayer(dt);
 
@@ -272,6 +275,55 @@ function drawMaze(dt) {
   );
 }
 
+function draw_a_path(a_path) {
+  if (a_path.length > 1) {
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    ctx.beginPath();
+    ctx.lineWidth = "8";
+    ctx.lineCap = 'round';
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = '#0f0';
+
+    ctx.moveTo(a_path[0][0], a_path[0][1]);
+    for (let j = 1; j < a_path.length; j++) {
+      ctx.lineTo(a_path[j][0], a_path[j][1]);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function log_it(message) {
+    ctx.save();
+    ctx.strokeStyle = '#fff';
+    ctx.fillStyle = '#fff';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText(message, 40, 40);
+    ctx.restore();
+}
+
+function drawUsedPaths(dt) {
+  if (player.current_path.length > 1) {
+    let [last_x, last_y] = player.current_path[player.current_path.length - 1];
+      if (Math.abs(last_x - player.x) > 6 || Math.abs(last_y - player.y) > 6) {
+        player.current_path.push([player.x, player.y]);
+      }
+      draw_a_path(player.current_path);
+  } else {
+    player.current_path.push([player.x, player.y]);
+  }
+
+  for (let i = 0; i < player.used_paths.length; i++) {
+    draw_a_path(player.used_paths[i]);
+  }
+  if (player.current_path.length > 40) {
+    player.used_paths.push(player.current_path);
+    player.current_path = [[player.x, player.y]];
+  }
+}
+
 function drawBreadCrumbs(dt) {
   for (let i = 0; i < player.breadcrumb_stack.stack.length; i++) {
     let [x, y] = player.breadcrumb_stack.stack[i];
@@ -301,9 +353,9 @@ const directions = {
 
 const slideAngles = [
   0,
-  Math.PI * 1/6, -Math.PI * 1/6,
+  /*Math.PI * 1/6, -Math.PI * 1/6,
   Math.PI * 1/4, -Math.PI * 1/4,
-  Math.PI * 1/3, -Math.PI * 1/3
+  Math.PI * 1/3, -Math.PI * 1/3*/
 ];
 
 function updatePlayer(dt) {
@@ -326,20 +378,25 @@ function updatePlayerFromControls(dt) {
   // the '.' key drops a numbered breadcrumb
   const drop_breadcrumb = keys[190] || false;
   // the '<backspace>' key jumps the player to the most recent breadcrumb
-  const jump_to_breadcrumb = keys[8] || false;
+  const jump_to_breadcrumb = keys[8] || keys[46] || false;
   const color_hinting = keys[67] || false;
+
 
   if (drop_breadcrumb) {
     delete keys[190]; // ensure keystroke happens only once
     player.breadcrumb_stack.push([player.x, player.y]);
   } else if (jump_to_breadcrumb) {
     delete keys[8]; // ensure keystroke happens only once
+    delete keys[46]; // ensure keystroke happens only once
     if (player.breadcrumb_stack.stack.length > 0) {
+      player.used_paths.push(player.current_path);
       [player.x, player.y] = player.breadcrumb_stack.pop();
+      player.current_path = [[player.x, player.y]];
     }
   } else if (color_hinting) {
     delete keys[67]; // ensure keystroke happens only once
     player.colorHinting = ! player.colorHinting;
+
   } else if (dir) {
     // Cursor keys or gamepad d-pad input
     player.v = player.maxSpeed;
@@ -393,18 +450,17 @@ function updatePlayerMotion(dt) {
   for (let idx = 0; idx < slideAngles.length; idx++) {
     const r = player.r + slideAngles[idx];
 
-    let tdx = Math.cos(r) * player.v * dt;
-    let tdy = Math.sin(r) * player.v * dt;
+    let tx = Math.cos(r) * player.v * dt + player.x;
+    let ty = Math.sin(r) * player.v * dt + player.y;
 
-    if (isPassableAt(player.x + tdx, player.y + tdy)) {
-      dx = tdx;
-      dy = tdy;
-      break;
+    [tx, ty] = suggestBetter(tx, ty);
+
+    if (isPassableAt(tx, ty))  {
+      player.x = tx;
+      player.y = ty;
+      return;
     }
   }
-
-  player.x += dx;
-  player.y += dy;
 
   debugOut.avg = getPixelAvgAt(player.x, player.y, map.pathData);
 }
@@ -419,7 +475,7 @@ function getPixelAt(x, y, pixelData) {
     1, 1
   ).data;
   */
-  const pos = 4 * (Math.ceil(x) + (Math.ceil(y) * map.width));
+  const pos = 4 * (Math.round(x) + (Math.round(y) * map.width));
   return pixelData.slice(pos, pos + 4);
 }
 
@@ -428,9 +484,77 @@ function getPixelAvgAt(x, y, pixelData) {
   return (d[0] + d[1] + d[2]) / 3;
 }
 
+function getPixelSumAt(x, y, pixelData) {
+  const d = getPixelAt(x, y, pixelData);
+  return d[0] + d[1] + d[2];
+}
 
 function isPassableAt(x, y) {
-  return getPixelAvgAt(x, y, map.pathData) > map.passableMin;
+  return getPixelSumAt(x, y, map.pathData) > map.passableMin;
+}
+
+function suggestBetter(x, y) {
+  var i;
+  var xAxis = [
+    [x-3, getPixelSumAt(x-3, y, map.pathData)],
+    [x-2, getPixelSumAt(x-2, y, map.pathData)],
+    [x-1, getPixelSumAt(x-1, y, map.pathData)],
+    [x,   getPixelSumAt(x,   y, map.pathData)],
+    [x+1, getPixelSumAt(x+1, y, map.pathData)],
+    [x+2, getPixelSumAt(x+2, y, map.pathData)],
+    [x+3, getPixelSumAt(x+3, y, map.pathData)],
+  ];
+  var yAxis = [
+    [y-3, getPixelSumAt(x,   y-3, map.pathData)],
+    [y-2, getPixelSumAt(x,   y-2, map.pathData)],
+    [y-1, getPixelSumAt(x,   y-1, map.pathData)],
+    [y,   xAxis[2][2]],
+    [y+1, getPixelSumAt(x,   y+1, map.pathData)],
+    [y+2, getPixelSumAt(x,   y+2, map.pathData)],
+    [y+3, getPixelSumAt(x,   y+3, map.pathData)],
+  ];
+
+  let lowX = xAxis.length;
+  for (i = 0; i < xAxis.length; i++) {
+    if (xAxis[i][1] > map.passableMin){
+      lowX = i;
+      break;
+    }
+  }
+  let highX = 0;
+  for (i = xAxis.length - 1; i >= 0; i--) {
+    if (xAxis[i][1] > map.passableMin){
+      highX = i;
+      break;
+    }
+  }
+  // this nothing is good
+  if (lowX > highX) return [x, y];
+
+  let lowY = yAxis.length;
+  for (i = 0; i < yAxis.length; i++) {
+    if (yAxis[i][1] > map.passableMin){
+      lowY = i;
+      break;
+    }
+  }
+  let highY = 0;
+  for (i = yAxis.length - 1; i >= 0; i--) {
+    if (yAxis[i][1] > map.passableMin){
+      highY = i;
+      break;
+    }
+  }
+  // nothing is better
+  if (lowY > highY) return [x, y];
+
+  let betterX = Math.trunc((highX - lowX) / 2) + lowX;
+  let betterY = Math.trunc((highY - lowY) / 2) + lowY;
+
+  debugOut.lars_sez = betterX.toString() + ": " + Math.trunc(xAxis[betterX][0]).toString() + "  " + betterY.toString() + ": " + Math.trunc(yAxis[betterY][0]).toString();
+
+  return [xAxis[betterX][0], yAxis[betterY][0]];
+
 }
 
 function degradeHintingColor() {
@@ -444,7 +568,7 @@ function drawPlayer(dt) {
 
   if (player.colorHinting && !player.colorHintingTimer && !inSolutionPath) {
     // degrade the player color every 60 seconds with a timer
-    player.colorHintingTimer = window.setInterval(degradeHintingColor, 60000);
+    player.colorHintingTimer = window.setInterval(degradeHintingColor, 20000);
   }
   if (player.colorHintingTimer && inSolutionPath) {
     // the player has moved back onto a solution path
