@@ -24,12 +24,14 @@ const TICK = 1000 / 60;
 
 // TODO: Load this from an external JSON URL for Issue #13
 const map = {
-  src: 'mazes/Firefox.png',
+  baseMapSrc: 'mazes/Firefox.png',
   pathSrc: 'mazes/Firefox.path.png',
+  solutionSrc: 'mazes/Firefox.green.png',
   passableMin: 67,
   startX: 499, startY: 432,
   width: 4000, height: 4000,
-  data: []
+  pathData: [],
+  solutionData: []
 };
 
 const keys = { };
@@ -43,7 +45,10 @@ const player = {
   r: 0,
   v: 0,
   maxSpeed: 60 / 1000,
-  breadcrumb_stack: new Stack()
+  breadcrumb_stack: new Stack(),
+  color: 4095,
+  colorHintingTimer: false,
+  colorHinting: false
 };
 const updateTimer = { };
 const drawTimer = { };
@@ -52,23 +57,39 @@ const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis
 let gui, statsDraw, statsUpdate;
 
 const ctx = document.getElementById('viewport').getContext('2d');
+ctx.canvas.width = map.width;
+ctx.canvas.height = map.height;
+
 
 function load() {
   // HACK: Render the whole path map at original scale and grab image data
   // array to consult for navigation. Seems wasteful of memory, but performs
   // way better than constant getImageData() calls
-  map.img = new Image();
-  map.img.src = map.pathSrc;
-  const loadPathImg = e => {
-    ctx.canvas.width = map.width;
-    ctx.canvas.height = map.height;
-    ctx.drawImage(map.img, 0, 0);
-    map.data = ctx.getImageData(0, 0, map.width, map.height).data;
-    map.img.removeEventListener('load', loadPathImg);
-    map.img.src = map.src;
+  map.baseMapImg = new Image();
+  map.baseMapImg.src = map.baseMapSrc;
+
+  map.pathMapImg = new Image();
+  map.pathMapImg.src = map.pathSrc;
+
+  map.solutionImg = new Image();
+  map.solutionImg.src = map.solutionSrc;
+
+  const loadBaseMapImg = e => {
+    ctx.drawImage(map.pathMapImg, 0, 0);
+    map.pathData = ctx.getImageData(0, 0, map.width, map.height).data;
+
+    ctx.drawImage(map.solutionImg, 0, 0);
+    map.solutionData = ctx.getImageData(0, 0, map.width, map.height).data;
+
+    ctx.drawImage(map.baseMapImg, 0, 0);
+
+    map.baseMapImg.removeEventListener('load', loadBaseMapImg);
+
     init();
-  };
-  map.img.addEventListener('load', loadPathImg);
+  }
+
+  map.baseMapImg.addEventListener('load', loadBaseMapImg);
+
 }
 
 function init() {
@@ -117,6 +138,7 @@ function draw(ts) {
 
     if (DEBUG) { statsDraw.end(); }
   });
+
   requestAnimFrame(draw);
 }
 
@@ -241,7 +263,7 @@ function drawDebug(dt) {
 }
 
 function drawMaze(dt) {
-  ctx.drawImage(map.img,
+  ctx.drawImage(map.baseMapImg,
     player.x - (ctx.canvas.width / 2 / camera.z),
     player.y - (ctx.canvas.height / 2 / camera.z),
     ctx.canvas.width / camera.z,
@@ -305,6 +327,7 @@ function updatePlayerFromControls(dt) {
   const drop_breadcrumb = keys[190] || false;
   // the '<backspace>' key jumps the player to the most recent breadcrumb
   const jump_to_breadcrumb = keys[8] || false;
+  const color_hinting = keys[67] || false;
 
   if (drop_breadcrumb) {
     delete keys[190]; // ensure keystroke happens only once
@@ -314,6 +337,9 @@ function updatePlayerFromControls(dt) {
     if (player.breadcrumb_stack.stack.length > 0) {
       [player.x, player.y] = player.breadcrumb_stack.pop();
     }
+  } else if (color_hinting) {
+    delete keys[67]; // ensure keystroke happens only once
+    player.colorHinting = ! player.colorHinting;
   } else if (dir) {
     // Cursor keys or gamepad d-pad input
     player.v = player.maxSpeed;
@@ -380,10 +406,10 @@ function updatePlayerMotion(dt) {
   player.x += dx;
   player.y += dy;
 
-  debugOut.avg = getPixelAvgAt(player.x, player.y);
+  debugOut.avg = getPixelAvgAt(player.x, player.y, map.pathData);
 }
 
-function getPixelAt(x, y) {
+function getPixelAt(x, y, pixelData) {
   /*
   const ox = (ctx.canvas.width / 2) - (player.x * camera.z);
   const oy = (ctx.canvas.height / 2) - (player.y * camera.z);
@@ -394,21 +420,43 @@ function getPixelAt(x, y) {
   ).data;
   */
   const pos = 4 * (Math.ceil(x) + (Math.ceil(y) * map.width));
-  return map.data.slice(pos, pos + 4);
+  return pixelData.slice(pos, pos + 4);
 }
 
-function getPixelAvgAt(x, y) {
-  const d = getPixelAt(x, y);
+function getPixelAvgAt(x, y, pixelData) {
+  const d = getPixelAt(x, y, pixelData);
   return (d[0] + d[1] + d[2]) / 3;
 }
 
+
 function isPassableAt(x, y) {
-  return getPixelAvgAt(x, y) > map.passableMin;
+  return getPixelAvgAt(x, y, map.pathData) > map.passableMin;
+}
+
+function degradeHintingColor() {
+  if (player.color > 3840) {
+    player.color -= 17;
+  }
 }
 
 function drawPlayer(dt) {
-  ctx.strokeStyle = '#fff';
-  ctx.fillStyle = '#fff';
+  let inSolutionPath = getPixelAvgAt(player.x, player.y, map.solutionData) != 0;
+
+  if (player.colorHinting && !player.colorHintingTimer && !inSolutionPath) {
+    // degrade the player color every 60 seconds with a timer
+    player.colorHintingTimer = window.setInterval(degradeHintingColor, 60000);
+  }
+  if (player.colorHintingTimer && inSolutionPath) {
+    // the player has moved back onto a solution path
+    // kill the timer and restore the color
+    window.clearInterval(player.colorHintingTimer);
+    player.colorHintingTimer = false;
+    player.color = 4095;
+  }
+
+  let color_str = "#".concat(player.color.toString(16));
+  ctx.strokeStyle = color_str;
+  ctx.fillStyle = color_str;
 
   ctx.beginPath();
   ctx.lineWidth = 0.5;
@@ -451,7 +499,8 @@ function initDebugGUI() {
 
   const fplayer = gui.addFolder('player');
   fplayer.open();
-  listenAll(fplayer, player, ['x', 'y', 'r', 'v']);
+  listenAll(fplayer, player, ['x', 'y', 'r', 'v', 'color', 'colorHinting']);
+
 
   const fcamera = gui.addFolder('camera');
   fcamera.open();
