@@ -7,6 +7,7 @@ import Dat from 'dat-gui';
 import Stats from 'stats.js';
 
 import { requestAnimFrame } from './lib/utils';
+import Input from './lib/input';
 
 // a simple minded stack structure used to store breadcrumbs
 function Stack() {
@@ -33,10 +34,6 @@ const map = {
   solutionData: []
 };
 
-const keys = { };
-const gamepad = { };
-const mouse = { x: 0, y: 0, down: false };
-const touch = { active: false, x: 0, y: 0 };
 const camera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
 const player = {
   x: 0,
@@ -98,8 +95,9 @@ function init() {
   document.body.className = 'loaded';
 
   expandCanvas();
+  window.addEventListener('resize', expandCanvas);
 
-  initUIEvents();
+  Input.init();
   initPlayer();
   initDebugGUI();
   initTimer(updateTimer);
@@ -113,7 +111,7 @@ function update() {
   handleTimer('update', Date.now(), updateTimer, true, dt => {
     if (DEBUG) { statsUpdate.begin(); }
 
-    updateGamepads(dt);
+    Input.update(dt);
     updatePlayer(dt);
     updateDebug();
 
@@ -164,23 +162,6 @@ function handleTimer(type, now, timer, fixed, cb) {
   }
 }
 
-function updateGamepads(dt) {
-  // Object.keys(gamepad).forEach(k => delete gamepad[k]);
-  var gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-
-  for (var i = 0; i < gamepads.length; i++) {
-  	var gp = gamepads[i];
-  	if (!gp || !gp.connected) continue;
-    gp.buttons.forEach((val, idx) => gamepad[`button${idx}`] = val.pressed);
-    gp.axes.forEach((val, idx) => gamepad[`axis${idx}`] = val);
-    break; // stop after the first gamepad
-  }
-
-  Object.keys(gamepad).forEach(k => {
-    if (!gamepad[k]) { delete gamepad[k]; }
-  });
-}
-
 function clearCanvas(dt) {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -194,72 +175,9 @@ function followAndZoom(dt) {
   ctx.scale(camera.z, camera.z);
 }
 
-function initUIEvents() {
-  const windowEvents = {
-    resize: expandCanvas,
-    mousemove: handleMouseMove,
-    mousedown: handleMouseDown,
-    mouseup: handleMouseUp,
-    keydown: handleKeyDown,
-    keyup: handleKeyUp,
-    touchstart: handleTouchStart,
-    touchmove: handleTouchMove,
-    touchend: handleTouchEnd
-  };
-  Object.keys(windowEvents).forEach(k => window.addEventListener(k, windowEvents[k]));
-}
-
 function expandCanvas() {
   ctx.canvas.width = window.innerWidth;
   ctx.canvas.height = window.innerHeight;
-}
-
-function handleMouseMove(ev) {
-  mouse.x = ev.clientX;
-  mouse.y = ev.clientY;
-  ev.preventDefault();
-}
-
-function handleTouchStart(ev) {
-  touch.active = true;
-  if (ev.changedTouches.length > 0) {
-    touch.x = ev.changedTouches[0].pageX;
-    touch.y = ev.changedTouches[0].pageY;
-  }
-  ev.preventDefault();
-}
-
-function handleTouchMove(ev) {
-  if (ev.changedTouches.length > 0) {
-    touch.x = ev.changedTouches[0].pageX;
-    touch.y = ev.changedTouches[0].pageY;
-  }
-  ev.preventDefault();
-}
-
-function handleTouchEnd(ev) {
-  touch.active = false;
-  ev.preventDefault();
-}
-
-function handleMouseDown(ev) {
-  mouse.down = true;
-  ev.preventDefault();
-}
-
-function handleMouseUp(ev) {
-  mouse.down = false;
-  ev.preventDefault();
-}
-
-function handleKeyDown(ev) {
-  keys[ev.keyCode] = true;
-  ev.preventDefault();
-}
-
-function handleKeyUp(ev) {
-  delete keys[ev.keyCode];
-  ev.preventDefault();
 }
 
 function drawDebug(dt) {
@@ -369,60 +287,60 @@ function updatePlayerFromControls(dt) {
   player.v = 0
 
   // Query cursor keys & gamepad d-pad
-  const dleft  = (keys[37] || gamepad.button13);
-  const dright = (keys[39] || gamepad.button14);
-  const dup    = (keys[38] || gamepad.button11);
-  const ddown  = (keys[40] || gamepad.button12);
+  const dleft  = (Input.keys[37] || Input.gamepad.button13);
+  const dright = (Input.keys[39] || Input.gamepad.button14);
+  const dup    = (Input.keys[38] || Input.gamepad.button11);
+  const ddown  = (Input.keys[40] || Input.gamepad.button12);
   const dir = (dup ? 'u' : (ddown ? 'd' : '')) +
               (dleft ? 'l' : (dright ? 'r' : ''));
   // the '.' key drops a numbered breadcrumb
-  const drop_breadcrumb = keys[190] || false;
+  const drop_breadcrumb = Input.keys[190] || false;
   // the '<backspace>' key jumps the player to the most recent breadcrumb
-  const jump_to_breadcrumb = keys[8] || keys[46] || false;
-  const color_hinting = keys[67] || false;
+  const jump_to_breadcrumb = Input.keys[8] || Input.keys[46] || false;
+  const color_hinting = Input.keys[67] || false;
 
 
   if (drop_breadcrumb) {
-    delete keys[190]; // ensure keystroke happens only once
+    delete Input.keys[190]; // ensure keystroke happens only once
     player.breadcrumb_stack.push([player.x, player.y]);
   } else if (jump_to_breadcrumb) {
-    delete keys[8]; // ensure keystroke happens only once
-    delete keys[46]; // ensure keystroke happens only once
+    delete Input.keys[8]; // ensure keystroke happens only once
+    delete Input.keys[46]; // ensure keystroke happens only once
     if (player.breadcrumb_stack.stack.length > 0) {
       player.used_paths.push(player.current_path);
       [player.x, player.y] = player.breadcrumb_stack.pop();
       player.current_path = [[player.x, player.y]];
     }
   } else if (color_hinting) {
-    delete keys[67]; // ensure keystroke happens only once
+    delete Input.keys[67]; // ensure keystroke happens only once
     player.colorHinting = ! player.colorHinting;
 
   } else if (dir) {
     // Cursor keys or gamepad d-pad input
     player.v = player.maxSpeed;
     player.r = directions[dir];
-  } else if (touch.active) {
+  } else if (Input.touch.active) {
     // Chase touch when active
-    const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (touch.x / camera.z);
-    const my = player.y - (ctx.canvas.height / 2 / camera.z) + (touch.y / camera.z);
+    const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (Input.touch.x / camera.z);
+    const my = player.y - (ctx.canvas.height / 2 / camera.z) + (Input.touch.y / camera.z);
 
     player.v = player.maxSpeed; // TODO: velocity from pointer distance?
     player.r = Math.atan2(my - player.y, mx - player.x)
-  } else if (mouse.down || keys[32]) {
+  } else if (Input.mouse.down || Input.keys[32]) {
     // Chase mouse on button down or spacebar
-    const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (mouse.x / camera.z);
-    const my = player.y - (ctx.canvas.height / 2 / camera.z) + (mouse.y / camera.z);
+    const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (Input.mouse.x / camera.z);
+    const my = player.y - (ctx.canvas.height / 2 / camera.z) + (Input.mouse.y / camera.z);
 
     player.v = player.maxSpeed; // TODO: velocity from pointer distance?
     player.r = Math.atan2(my - player.y, mx - player.x)
-  } else if (typeof(gamepad.axis0) != 'undefined' && typeof(gamepad.axis1) != 'undefined') {
+  } else if (typeof(Input.gamepad.axis0) != 'undefined' && typeof(Input.gamepad.axis1) != 'undefined') {
     // Gamepad analog stick for rotation & velocity
-    const jx = Math.abs(gamepad.axis0) > 0.1 ? gamepad.axis0 : 0;
-    const jy = Math.abs(gamepad.axis1) > 0.1 ? gamepad.axis1 : 0;
+    const jx = Math.abs(Input.gamepad.axis0) > 0.1 ? Input.gamepad.axis0 : 0;
+    const jy = Math.abs(Input.gamepad.axis1) > 0.1 ? Input.gamepad.axis1 : 0;
 
     if (Math.abs(jx) > 0 || Math.abs(jy) > 0) {
       player.v = player.maxSpeed; // TODO: velocity from stick intensity?
-      player.r = Math.atan2(gamepad.axis1, gamepad.axis0)
+      player.r = Math.atan2(Input.gamepad.axis1, Input.gamepad.axis0)
     }
   }
 }
@@ -619,7 +537,7 @@ function initDebugGUI() {
 
   const ftouch = gui.addFolder('touch');
   ftouch.open();
-  listenAll(ftouch, touch);
+  listenAll(ftouch, Input.touch);
 
   const fplayer = gui.addFolder('player');
   fplayer.open();
@@ -632,7 +550,7 @@ function initDebugGUI() {
 
   const fmouse = gui.addFolder('mouse');
   fmouse.open();
-  listenAll(fmouse, mouse);
+  listenAll(fmouse, Input.mouse);
 
   const fkeys = gui.addFolder('debug');
   fkeys.open();
@@ -643,10 +561,10 @@ function updateDebug(dt) {
   if (!DEBUG) { return; }
 
   Object.assign(debugOut, {
-    keys: JSON.stringify(keys),
-    gamepad: JSON.stringify(gamepad),
-    gamepadAxis0: gamepad.axis0,
-    gamepadAxis1: gamepad.axis1
+    keys: JSON.stringify(Input.keys),
+    gamepad: JSON.stringify(Input.gamepad),
+    gamepadAxis0: Input.gamepad.axis0,
+    gamepadAxis1: Input.gamepad.axis1
   });
 }
 
