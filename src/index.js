@@ -324,11 +324,11 @@ function updatePlayerFromControls(dt) {
   // Start from zero velocity if no controls are applied
   player.v = 0
 
-  // Query cursor keys & gamepad d-pad
-  const dleft  = (Input.keys[37] || Input.gamepad.button13);
-  const dright = (Input.keys[39] || Input.gamepad.button14);
-  const dup    = (Input.keys[38] || Input.gamepad.button11);
-  const ddown  = (Input.keys[40] || Input.gamepad.button12);
+  // Query cursor keys & WASD & gamepad d-pad
+  const dleft  = (Input.keys[65] || Input.keys[37] || Input.gamepad.button13);
+  const dright = (Input.keys[68] || Input.keys[39] || Input.gamepad.button14);
+  const dup    = (Input.keys[87] || Input.keys[38] || Input.gamepad.button11);
+  const ddown  = (Input.keys[83] || Input.keys[40] || Input.gamepad.button12);
   const dir = (dup ? 'u' : (ddown ? 'd' : '')) +
               (dleft ? 'l' : (dright ? 'r' : ''));
   // the '.' key drops a numbered breadcrumb
@@ -373,8 +373,8 @@ function updatePlayerFromControls(dt) {
     player.r = Math.atan2(my - player.y, mx - player.x)
   } else if (typeof(Input.gamepad.axis0) != 'undefined' && typeof(Input.gamepad.axis1) != 'undefined') {
     // Gamepad analog stick for rotation & velocity
-    const jx = Math.abs(Input.gamepad.axis0) > 0.1 ? Input.gamepad.axis0 : 0;
-    const jy = Math.abs(Input.gamepad.axis1) > 0.1 ? Input.gamepad.axis1 : 0;
+    const jx = Math.abs(Input.gamepad.axis0) > 0.2 ? Input.gamepad.axis0 : 0;
+    const jy = Math.abs(Input.gamepad.axis1) > 0.2 ? Input.gamepad.axis1 : 0;
 
     if (Math.abs(jx) > 0 || Math.abs(jy) > 0) {
       player.v = player.maxSpeed; // TODO: velocity from stick intensity?
