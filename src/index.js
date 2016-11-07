@@ -26,10 +26,13 @@ const TICK = 1000 / 60;
 // TODO: Load this from an external JSON URL for Issue #13
 const map = {
   baseMapSrc: 'mazes/Firefox.png',
+  baseMapTilePath: 'mazes/Firefox',
+  pathSrc: 'mazes/Firefox.path.png',
   solutionSrc: 'mazes/Firefox.green.png',
   passableMin: 67,
   startX: 499, startY: 432,
   width: 4000, height: 4000,
+  tileWidth: 512, tileHeight: 512,
   pathData: [],
   solutionData: []
 };
@@ -40,7 +43,7 @@ const player = {
   y: 0,
   r: 0,
   v: 0,
-  maxSpeed: 60 / 1000,
+  maxSpeed: 100 / 1000,
   breadcrumb_stack: new Stack(),
   color: 4095,
   colorHintingTimer: false,
@@ -63,32 +66,27 @@ function load() {
   // HACK: Render the whole path map at original scale and grab image data
   // array to consult for navigation. Seems wasteful of memory, but performs
   // way better than constant getImageData() calls
-  map.baseMapImg = new Image();
-  map.baseMapImg.src = map.baseMapSrc;
+  map.pathImg = new Image();
+  map.pathImg.src = map.pathSrc;
 
   map.solutionImg = new Image();
   map.solutionImg.src = map.solutionSrc;
 
   const loadBaseMapImg = e => {
-    //ctx.drawImage(map.pathMapImg, 0, 0);
-
     ctx.drawImage(map.solutionImg, 0, 0);
     map.solutionData = ctx.getImageData(0, 0, map.width, map.height).data;
 
-    ctx.drawImage(map.baseMapImg, 0, 0);
+    ctx.drawImage(map.pathImg, 0, 0);
     map.pathData = ctx.getImageData(0, 0, map.width, map.height).data;
 
-    map.baseMapImg.removeEventListener('load', loadBaseMapImg);
+    map.pathImg.removeEventListener('load', loadBaseMapImg);
 
-    player.preferredMap = map.baseMapImg;
-
+    player.preferredMap = map.pathImg;
 
     init();
   }
 
-  map.baseMapImg.addEventListener('load', loadBaseMapImg);
-
-
+  map.pathImg.addEventListener('load', loadBaseMapImg);
 }
 
 function init() {
@@ -183,7 +181,7 @@ function expandCanvas() {
 function drawDebug(dt) {
 }
 
-function drawMaze(dt) {
+function drawMazeOld(dt) {
   ctx.drawImage(map.baseMapImg,
     player.x - (ctx.canvas.width / 2 / camera.z),
     player.y - (ctx.canvas.height / 2 / camera.z),
@@ -191,6 +189,46 @@ function drawMaze(dt) {
     ctx.canvas.height / camera.z,
     0, 0, ctx.canvas.width, ctx.canvas.height
   );
+}
+
+function drawMaze(dt) {
+  // Find the rectangle of visible map
+  const mapX = player.x - (ctx.canvas.width / 2 / camera.z);
+  const mapY = player.y - (ctx.canvas.height / 2 / camera.z);
+  const mapW = ctx.canvas.width / camera.z;
+  const mapH = ctx.canvas.height / camera.z;
+
+  // Find the start/end indices for tiles in visible map
+  const colStart = Math.floor(mapX / map.tileWidth);
+  const rowStart = Math.floor(mapY / map.tileHeight);
+  const colEnd = Math.ceil(colStart + (mapW / map.tileWidth));
+  const rowEnd = Math.ceil(rowStart + (mapH / map.tileHeight));
+
+  const scaledTileWidth = map.tileWidth * camera.z;
+  const scaledTileHeight = map.tileHeight * camera.z;
+
+  // Calculate the offset where tile drawing should begin
+  let drawOffX = (mapX % map.tileWidth) * camera.z;
+  if (drawOffX < 0) { drawOffX = scaledTileWidth + drawOffX; }
+  let drawOffY = (mapY % map.tileHeight) * camera.z;
+  if (drawOffY < 0) { drawOffY = scaledTileHeight + drawOffY; }
+
+  for (let row = rowStart; row <= rowEnd; row++) {
+    for (let col = colStart; col <= colEnd; col++) {
+      const x = ((col - colStart) * scaledTileWidth) - drawOffX;
+      const y = ((row - rowStart) * scaledTileHeight) - drawOffY;
+
+      if (col >= 0 && row >= 0) {
+        // TODO: memoize / pre-load these images
+        const img = new Image();
+        img.src = `${map.baseMapTilePath}/${row}x${col}.png`;
+        ctx.drawImage(img,
+          0, 0, map.tileWidth, map.tileHeight,
+          x, y, map.tileWidth * camera.z, map.tileHeight * camera.z
+        );
+      }
+    }
+  }
 }
 
 function draw_a_path(a_path) {
