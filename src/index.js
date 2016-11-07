@@ -44,6 +44,8 @@ const player = {
   r: 0,
   v: 0,
   maxSpeed: 100 / 1000,
+  vibrating: 0,
+  vibrateBaseLocation: [0,0],
   breadcrumb_stack: new Stack(),
   color: 4095,
   colorHintingTimer: false,
@@ -402,21 +404,64 @@ function updatePlayerMotion(dt) {
   let dx = 0;
   let dy = 0;
 
-  // Try deflecting at several side angles on collision with a wall.
-  for (let idx = 0; idx < slideAngles.length; idx++) {
-    const r = player.r + slideAngles[idx];
+  if (player.vibrating > 10)
+    var [px, py] = player.vibrateBaseLocation;
+  else
+    var [px, py] = [player.x, player.y];
 
-    let tx = Math.cos(r) * player.v * dt + player.x;
-    let ty = Math.sin(r) * player.v * dt + player.y;
+  let tx = Math.trunc(Math.cos(player.r) * player.v * dt + px);
+  let ty = Math.trunc(Math.sin(player.r) * player.v * dt + py);
 
-    [tx, ty] = suggestBetter(tx, ty);
+  // is the player even moving?
+  if (px == tx && py == ty) {
+    player.vibrating = 0;
+    return;
+  }
 
-    if (isPassableAt(tx, ty))  {
-      player.x = tx;
-      player.y = ty;
-      return;
+  //prevent overrun
+  dx = px - tx;
+  dy = py - ty;
+  let largerDelta = Math.max(Math.abs(dx), Math.abs(dy));
+  let dxStep = dx / largerDelta;
+  let dyStep = dy / largerDelta;
+
+  // check every point along the player path to ensure
+  // that no boundary wall was crossed
+  let overrunX = px;
+  let everrunY = py;
+  for (let i = 1; i <= largerDelta ; i++) {
+    let testX = Math.trunc(dxStep * i + px);
+    let testY = Math.trunc(dyStep * i + py);
+    if (isPassableAt(testX, testY)) {
+      overrunX = testX;
+      everrunY = testY;
+    } else {
+      tx = overrunX;
+      ty = everrunY;
+      break;
     }
   }
+
+  [tx, ty] = suggestBetter(tx, ty);
+  if (!isPassableAt(tx, ty)) return;
+
+  // stop vibration
+  let vdx = Math.abs(player.x - tx);
+  let vdy = Math.abs(player.y - ty);
+  debugOut.lars_sez = vdx.toString() + ", " + vdy.toString() + " [" + player.vibrateBaseLocation.toString() + "]";
+  if (vdx < 2 && vdy < 2) {
+    player.vibrating += 1;
+    if (player.vibrating > 10) {
+      player.vibrateBaseLocation = [tx, ty];
+      return;
+    }
+    player.x = tx;
+    player.y = ty;
+    return;
+  }
+  player.x = tx;
+  player.y = ty;
+  player.vibrating = 0;
 
   debugOut.avg = getPixelAvgAt(player.x, player.y, map.pathData);
 }
@@ -507,7 +552,7 @@ function suggestBetter(x, y) {
   let betterX = Math.trunc((highX - lowX) / 2) + lowX;
   let betterY = Math.trunc((highY - lowY) / 2) + lowY;
 
-  debugOut.lars_sez = betterX.toString() + ": " + Math.trunc(xAxis[betterX][0]).toString() + "  " + betterY.toString() + ": " + Math.trunc(yAxis[betterY][0]).toString();
+  //debugOut.lars_sez = betterX.toString() + ": " + Math.trunc(xAxis[betterX][0]).toString() + "  " + betterY.toString() + ": " + Math.trunc(yAxis[betterY][0]).toString();
 
   return [xAxis[betterX][0], yAxis[betterY][0]];
 
@@ -579,7 +624,7 @@ function initDebugGUI() {
 
   const fplayer = gui.addFolder('player');
   fplayer.open();
-  listenAll(fplayer, player, ['x', 'y', 'r', 'v', 'color', 'colorHinting']);
+  listenAll(fplayer, player, ['x', 'y', 'r', 'v', 'color', 'colorHinting', 'vibrating']);
 
 
   const fcamera = gui.addFolder('camera');
