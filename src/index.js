@@ -75,6 +75,9 @@ function load() {
   map.solutionImg = new Image();
   map.solutionImg.src = map.solutionSrc;
 
+  map.tileCols = Math.ceil(map.width / map.tileWidth);
+  map.tileRows = Math.ceil(map.height / map.tileHeight);
+
   const loadBaseMapImg = e => {
     ctx.drawImage(map.solutionImg, 0, 0);
     map.solutionData = ctx.getImageData(0, 0, map.width, map.height).data;
@@ -221,7 +224,7 @@ function drawMaze(dt) {
       const x = ((col - colStart) * scaledTileWidth) - drawOffX;
       const y = ((row - rowStart) * scaledTileHeight) - drawOffY;
 
-      if (col >= 0 && row >= 0) {
+      if (col >= 0 && row >= 0 && col < map.tileCols && row < map.tileRows) {
         const tileKey = `${row}x${col}`;
         if (!map.tiles[tileKey]) {
           const img = new Image();
