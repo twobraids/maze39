@@ -25,8 +25,7 @@ gulp.task('build:js', () => rollup({
     require('rollup-plugin-node-resolve')({ jsnext: true }),
     require('rollup-plugin-commonjs')(),
     require('rollup-plugin-babel')({
-      exclude: 'node_modules/**',
-      presets: 'es2015-rollup'
+      exclude: 'node_modules/**'
     }),
     !DEBUG && require('rollup-plugin-uglify')()
   ]
