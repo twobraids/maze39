@@ -426,8 +426,8 @@ function updatePlayerMotion(dt) {
   }
 
   //prevent overrun
-  dx = px - tx;
-  dy = py - ty;
+  dx = tx - px;
+  dy = ty - py;
   let largerDelta = Math.max(Math.abs(dx), Math.abs(dy));
   let dxStep = dx / largerDelta;
   let dyStep = dy / largerDelta;
