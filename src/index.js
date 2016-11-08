@@ -413,8 +413,8 @@ function updatePlayerMotion(dt) {
   else
     var [px, py] = [player.x, player.y];
 
-  let tx = Math.trunc(Math.cos(player.r) * player.v * dt + px);
-  let ty = Math.trunc(Math.sin(player.r) * player.v * dt + py);
+  let tx = Math.cos(player.r) * player.v * dt + px;
+  let ty = Math.sin(player.r) * player.v * dt + py;
 
   // is the player even moving?
   if (px == tx && py == ty) {
