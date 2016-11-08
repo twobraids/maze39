@@ -38,6 +38,7 @@ function Stack() {
 
 const DEBUG = false;
 const TICK = 1000 / 60;
+const PI2 = Math.PI * 2;
 
 // TODO: Load this from an external JSON URL for Issue #13
 const greenMap = {
@@ -162,7 +163,10 @@ var camera = animationCamera;
 const player = {
   x: 0,
   y: 0,
-  r: 0,
+  x_history: [],
+  y_history: [],
+  r: Math.PI * (3/2),
+  r_history: [],
   v: 0,
   maxSpeed: 130 / 1000,
   vibrating: 0,
@@ -176,6 +180,7 @@ const player = {
 };
 const updateTimer = { };
 const drawTimer = { };
+const debugIn = { tileGrid: false };
 const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '', gameState: '', lars_sez: '' };
 
 let gui, statsDraw, statsUpdate;
@@ -338,6 +343,14 @@ function drawMaze(dt) {
           x, y, map.tileWidth * camera.z, map.tileHeight * camera.z
         );
       }
+
+      if (DEBUG && debugIn.tileGrid) {
+        ctx.strokeStyle = (col >= 0 && row >= 0 && col < map.tileCols && row < map.tileRows) ? '#0a0' : '#a00';
+        ctx.strokeRect(x, y, map.tileWidth * camera.z, map.tileHeight * camera.z);
+
+        ctx.strokeStyle = '#fff';
+        ctx.strokeText(`${row}x${col}`, x + 12, y + 12);
+      }
     }
   }
 }
@@ -423,6 +436,13 @@ function initPlayer() {
   player.x = map.startX;
   player.y = map.startY;
   player.color = 4095;
+  player.sprite = {
+   rings: [
+    { t: 0, delay: 0,   startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000 },
+    { t: 0, delay: 300, startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000 },
+    { t: 0, delay: 600, startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000 }
+   ]
+  };
 }
 
 const directions = {
@@ -706,10 +726,11 @@ function updatePlayerMotion(dt) {
   let dx = 0;
   let dy = 0;
 
-  if (player.vibrating > 10)
+  if (player.vibrating > 10) {
     var [px, py] = player.vibrateBaseLocation;
-  else
+  } else {
     var [px, py] = [player.x, player.y];
+  }
 
   let tx = Math.cos(player.r) * player.v * dt + px;
   let ty = Math.sin(player.r) * player.v * dt + py;
@@ -763,6 +784,7 @@ function updatePlayerMotion(dt) {
     player.y = ty;
     return;
   }
+
   player.x = tx;
   player.y = ty;
   player.vibrating = 0;
@@ -886,20 +908,58 @@ function drawPlayer(dt) {
   ctx.strokeStyle = color_str;
   ctx.fillStyle = color_str;
 
-  ctx.beginPath();
-  ctx.lineWidth = 0.5;
-  ctx.arc(player.x, player.y, 3, 0, Math.PI * 2);
-  ctx.stroke();
+  // Try coming up with a short travel history segment for a
+  // smoothed avatar rotation
+  player.x_history.unshift(player.x);
+  player.y_history.unshift(player.y);
+  if (player.x_history.length > 20) { player.x_history.pop(); }
+  if (player.y_history.length > 20) { player.y_history.pop(); }
+  const drawR = Math.atan2(
+    player.y_history[0] - player.y_history[player.y_history.length - 1],
+    player.x_history[0] - player.x_history[player.x_history.length - 1]
+  );
 
+  // Draw a little arrowhead avatar
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.rotate(drawR);
+  ctx.lineWidth = '1.5';
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.lineWidth = 2;
-  ctx.arc(player.x, player.y, 9, 0, Math.PI * 2);
+  ctx.moveTo(5, 0);
+  ctx.lineTo(-5, 5);
+  ctx.lineTo(0, 0);
+  ctx.lineTo(-5, -5);
+  ctx.lineTo(5, 0);
   ctx.stroke();
+  ctx.fill();
+  ctx.restore();
 
-  ctx.beginPath();
-  ctx.lineWidth = 4;
-  ctx.arc(player.x, player.y, 27, 0, Math.PI * 2);
-  ctx.stroke();
+  // When we're zoomed out, animate a ripple to call attention to the avatar.
+  if (camera.z < 1) {
+    player.sprite.rings.forEach(ring => {
+      if (ring.delay > 0) { return ring.delay -= dt; }
+
+      ring.t += dt;
+      if (ring.t >= ring.endT) { ring.t = 0; }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.lineWidth = 2.5;
+      ctx.globalAlpha = lerp(ring.startO, ring.endO, ring.t / ring.endT);
+      ctx.arc(player.x, player.y,
+              lerp(ring.startR, ring.endR, ring.t / ring.endT),
+              0, PI2);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+}
+
+// Linear interpolation from v0 to v1 over t[0..1]
+function lerp(v0, v1, t) {
+  return (1-t)*v0 + t*v1;
 }
 
 function initDebugGUI() {
@@ -921,26 +981,26 @@ function initDebugGUI() {
     keys.forEach(k => folder.add(obj, k).listen());
   };
 
+  const fdebug = gui.addFolder('debug');
+  fdebug.open();
+  listenAll(fdebug, debugIn);
+  listenAll(fdebug, debugOut);
+
   const ftouch = gui.addFolder('touch');
-  ftouch.open();
+  // ftouch.open();
   listenAll(ftouch, Input.touch);
 
   const fplayer = gui.addFolder('player');
   fplayer.open();
   listenAll(fplayer, player, ['x', 'y', 'r', 'v', 'color', 'colorHinting', 'vibrating']);
 
-
   const fcamera = gui.addFolder('camera');
-  fcamera.open();
+  // fcamera.open();
   listenAll(fcamera, camera, ['x', 'y', 'z', 'zdelay']);
 
   const fmouse = gui.addFolder('mouse');
-  fmouse.open();
+  // fmouse.open();
   listenAll(fmouse, Input.mouse);
-
-  const fkeys = gui.addFolder('debug');
-  fkeys.open();
-  listenAll(fkeys, debugOut);
 }
 
 function updateDebug(dt) {
