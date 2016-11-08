@@ -33,6 +33,7 @@ const map = {
   startX: 499, startY: 432,
   width: 4000, height: 4000,
   tileWidth: 512, tileHeight: 512,
+  tiles: {},
   pathData: [],
   solutionData: []
 };
@@ -221,10 +222,13 @@ function drawMaze(dt) {
       const y = ((row - rowStart) * scaledTileHeight) - drawOffY;
 
       if (col >= 0 && row >= 0) {
-        // TODO: memoize / pre-load these images
-        const img = new Image();
-        img.src = `${map.baseMapTilePath}/${row}x${col}.png`;
-        ctx.drawImage(img,
+        const tileKey = `${row}x${col}`;
+        if (!map.tiles[tileKey]) {
+          const img = new Image();
+          img.src = `${map.baseMapTilePath}/${tileKey}.png`;
+          map.tiles[tileKey] = img;
+        }
+        ctx.drawImage(map.tiles[tileKey],
           0, 0, map.tileWidth, map.tileHeight,
           x, y, map.tileWidth * camera.z, map.tileHeight * camera.z
         );
