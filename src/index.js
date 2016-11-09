@@ -24,13 +24,23 @@ const DEBUG = true;
 const TICK = 1000 / 60;
 
 // TODO: Load this from an external JSON URL for Issue #13
-const map = {
+const greenMap = {
   baseMapSrc: 'mazes/Firefox.png',
   baseMapTilePath: 'mazes/Firefox',
-  pathSrc: 'mazes/Firefox.path.png',
+  pathSrc: 'mazes/Firefox.png',
   solutionSrc: 'mazes/Firefox.green.png',
   passableMin: 67,
   startX: 499, startY: 432,
+  endX: 3258, endY: 433,
+  startArrowButt: [521, 401],
+  startArrowPoint: [509, 418],
+  startArrowLeftWing: [507, 411],
+  startArrowRightWing: [517, 417],
+  endArrowButt: [3259, 420],
+  endArrowPoint: [3262, 399],
+  endArrowLeftWing: [3254,405],
+  endArrowRightWing: [3268, 407],
+  solutionColor: "#0f0",
   width: 4000, height: 4000,
   tileWidth: 512, tileHeight: 512,
   tiles: {},
@@ -38,13 +48,39 @@ const map = {
   solutionData: []
 };
 
+const redMap = {
+  baseMapSrc: 'mazes/Firefox.png',
+  baseMapTilePath: 'mazes/Firefox',
+  pathSrc: 'mazes/Firefox.png',
+  solutionSrc: 'mazes/Firefox.red.png',
+  passableMin: 67,
+  startX: 487, startY: 419,
+  endX: 3228, endY: 427,
+  startArrowButt: [486, 383],
+  startArrowPoint: [487, 407],
+  startArrowLeftWing: [495, 399],
+  startArrowRightWing: [479, 400],
+  endArrowButt: [3219, 419],
+  endArrowPoint: [3203, 406],
+  endArrowLeftWing: [3204,417],
+  endArrowRightWing: [3213, 406],
+  solutionColor: "#f00",
+  width: 4000, height: 4000,
+  tileWidth: 512, tileHeight: 512,
+  tiles: {},
+  pathData: [],
+  solutionData: []
+};
+
+const map = greenMap;
+
 const camera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
 const player = {
   x: 0,
   y: 0,
   r: 0,
   v: 0,
-  maxSpeed: 100 / 1000,
+  maxSpeed: 130 / 1000,
   vibrating: 0,
   vibrateBaseLocation: [0,0],
   breadcrumb_stack: new Stack(),
@@ -246,9 +282,6 @@ function draw_a_path(a_path) {
     ctx.globalCompositeOperation = "multiply";
     ctx.beginPath();
     ctx.lineWidth = "8";
-    ctx.lineCap = 'round';
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = '#0f0';
 
     ctx.moveTo(a_path[0][0], a_path[0][1]);
     for (let j = 1; j < a_path.length; j++) {
@@ -259,17 +292,27 @@ function draw_a_path(a_path) {
   }
 }
 
-function log_it(message) {
-    ctx.save();
-    ctx.strokeStyle = '#fff';
-    ctx.fillStyle = '#fff';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText(message, 40, 40);
-    ctx.restore();
-}
-
 function drawUsedPaths(dt) {
+  ctx.save();
+  ctx.lineWidth = "4";
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = map.solutionColor;
+  ctx.beginPath();
+  ctx.moveTo(map.startArrowButt[0], map.startArrowButt[1]);
+  ctx.lineTo(map.startArrowPoint[0], map.startArrowPoint[1]);
+  ctx.lineTo(map.startArrowLeftWing[0], map.startArrowLeftWing[1]);
+  ctx.moveTo(map.startArrowPoint[0], map.startArrowPoint[1]);
+  ctx.lineTo(map.startArrowRightWing[0], map.startArrowRightWing[1]);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(map.endArrowButt[0], map.endArrowButt[1]);
+  ctx.lineTo(map.endArrowPoint[0], map.endArrowPoint[1]);
+  ctx.lineTo(map.endArrowLeftWing[0], map.endArrowLeftWing[1]);
+  ctx.moveTo(map.endArrowPoint[0], map.endArrowPoint[1]);
+  ctx.lineTo(map.endArrowRightWing[0], map.endArrowRightWing[1]);
+  ctx.stroke();
+
   if (player.current_path.length > 1) {
     let [last_x, last_y] = player.current_path[player.current_path.length - 1];
       if (Math.abs(last_x - player.x) > 6 || Math.abs(last_y - player.y) > 6) {
@@ -287,6 +330,8 @@ function drawUsedPaths(dt) {
     player.used_paths.push(player.current_path);
     player.current_path = [[player.x, player.y]];
   }
+
+  ctx.restore();
 }
 
 function drawBreadCrumbs(dt) {
@@ -350,6 +395,7 @@ function updatePlayerFromControls(dt) {
   if (drop_breadcrumb) {
     delete Input.keys[190]; // ensure keystroke happens only once
     player.breadcrumb_stack.push([player.x, player.y]);
+
   } else if (jump_to_breadcrumb) {
     delete Input.keys[8]; // ensure keystroke happens only once
     delete Input.keys[46]; // ensure keystroke happens only once
@@ -358,6 +404,7 @@ function updatePlayerFromControls(dt) {
       [player.x, player.y] = player.breadcrumb_stack.pop();
       player.current_path = [[player.x, player.y]];
     }
+
   } else if (color_hinting) {
     delete Input.keys[67]; // ensure keystroke happens only once
     player.colorHinting = ! player.colorHinting;
@@ -366,25 +413,29 @@ function updatePlayerFromControls(dt) {
     // Cursor keys or gamepad d-pad input
     player.v = player.maxSpeed;
     player.r = directions[dir];
+
   } else if (Input.touch.active) {
     // Chase touch when active
     const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (Input.touch.x / camera.z);
     const my = player.y - (ctx.canvas.height / 2 / camera.z) + (Input.touch.y / camera.z);
-
     player.v = player.maxSpeed; // TODO: velocity from pointer distance?
     player.r = Math.atan2(my - player.y, mx - player.x)
+
   } else if (Input.mouse.down || Input.keys[32]) {
     // Chase mouse on button down or spacebar
     const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (Input.mouse.x / camera.z);
     const my = player.y - (ctx.canvas.height / 2 / camera.z) + (Input.mouse.y / camera.z);
+    var distance = Math.sqrt(Math.pow(my - player.y, 2) + Math.pow(mx - player.x, 2));
+    if (distance > 40) distance = 40;
+    const speedFactor = distance / 40;
+    player.v = player.maxSpeed * speedFactor; // TODO: velocity from pointer distance?
+    //debugOut.lars_sez = Math.round(distance).toString() + " " + player.v.toString();
+    player.r = Math.atan2(my - player.y, mx - player.x);
 
-    player.v = player.maxSpeed; // TODO: velocity from pointer distance?
-    player.r = Math.atan2(my - player.y, mx - player.x)
   } else if (typeof(Input.gamepad.axis0) != 'undefined' && typeof(Input.gamepad.axis1) != 'undefined') {
     // Gamepad analog stick for rotation & velocity
     const jx = Math.abs(Input.gamepad.axis0) > 0.2 ? Input.gamepad.axis0 : 0;
     const jy = Math.abs(Input.gamepad.axis1) > 0.2 ? Input.gamepad.axis1 : 0;
-
     if (Math.abs(jx) > 0 || Math.abs(jy) > 0) {
       player.v = player.maxSpeed; // TODO: velocity from stick intensity?
       player.r = Math.atan2(Input.gamepad.axis1, Input.gamepad.axis0)
@@ -426,8 +477,8 @@ function updatePlayerMotion(dt) {
   }
 
   //prevent overrun
-  dx = px - tx;
-  dy = py - ty;
+  dx = tx - px;
+  dy = ty - py;
   let largerDelta = Math.max(Math.abs(dx), Math.abs(dy));
   let dxStep = dx / largerDelta;
   let dyStep = dy / largerDelta;
@@ -435,16 +486,18 @@ function updatePlayerMotion(dt) {
   // check every point along the player path to ensure
   // that no boundary wall was crossed
   let overrunX = px;
-  let everrunY = py;
+  let overrunY = py;
   for (let i = 1; i <= largerDelta ; i++) {
-    let testX = Math.trunc(dxStep * i + px);
-    let testY = Math.trunc(dyStep * i + py);
+    let testX = Math.round(dxStep * i + px);
+    let testY = Math.round(dyStep * i + py);
     if (isPassableAt(testX, testY)) {
       overrunX = testX;
-      everrunY = testY;
+      overrunY = testY;
+
     } else {
       tx = overrunX;
-      ty = everrunY;
+      ty = overrunY;
+
       break;
     }
   }
@@ -455,11 +508,11 @@ function updatePlayerMotion(dt) {
   // stop vibration
   let vdx = Math.abs(player.x - tx);
   let vdy = Math.abs(player.y - ty);
-  debugOut.lars_sez = vdx.toString() + ", " + vdy.toString() + " [" + player.vibrateBaseLocation.toString() + "]";
   if (vdx < 2 && vdy < 2) {
     player.vibrating += 1;
     if (player.vibrating > 10) {
       player.vibrateBaseLocation = [tx, ty];
+
       return;
     }
     player.x = tx;
@@ -504,65 +557,50 @@ function isPassableAt(x, y) {
 function suggestBetter(x, y) {
   var i;
   var xAxis = [
-    [x-3, getPixelSumAt(x-3, y, map.pathData)],
-    [x-2, getPixelSumAt(x-2, y, map.pathData)],
-    [x-1, getPixelSumAt(x-1, y, map.pathData)],
-    [x,   getPixelSumAt(x,   y, map.pathData)],
-    [x+1, getPixelSumAt(x+1, y, map.pathData)],
-    [x+2, getPixelSumAt(x+2, y, map.pathData)],
-    [x+3, getPixelSumAt(x+3, y, map.pathData)],
+    [x-4, isPassableAt(x-4, y)],
+    [x-3, isPassableAt(x-3, y)],
+    [x-2, isPassableAt(x-2, y)],
+    [x-1, isPassableAt(x-1, y)],
+    [x,   isPassableAt(x,   y)],
+    [x+1, isPassableAt(x+1, y)],
+    [x+2, isPassableAt(x+2, y)],
+    [x+3, isPassableAt(x+3, y)],
+    [x+4, isPassableAt(x+4, y)],
   ];
+  for (i = 4; i >= 0; i--)
+    if (!xAxis[i][1])
+      break;
+  let lowX = i;
+  for (i = 4; i < xAxis.length; i++)
+    if (!xAxis[i][1])
+      break;
+  let highX = i;
+  let middleX =  Math.trunc((highX - lowX) / 2 + lowX);
+
   var yAxis = [
-    [y-3, getPixelSumAt(x,   y-3, map.pathData)],
-    [y-2, getPixelSumAt(x,   y-2, map.pathData)],
-    [y-1, getPixelSumAt(x,   y-1, map.pathData)],
-    [y,   xAxis[2][2]],
-    [y+1, getPixelSumAt(x,   y+1, map.pathData)],
-    [y+2, getPixelSumAt(x,   y+2, map.pathData)],
-    [y+3, getPixelSumAt(x,   y+3, map.pathData)],
+    [y-4, isPassableAt(xAxis[middleX][0], y-4)],
+    [y-3, isPassableAt(xAxis[middleX][0], y-3)],
+    [y-2, isPassableAt(xAxis[middleX][0], y-2)],
+    [y-1, isPassableAt(xAxis[middleX][0], y-1)],
+    [y,   isPassableAt(xAxis[middleX][0], y)],
+    [y+1, isPassableAt(xAxis[middleX][0], y+1)],
+    [y+2, isPassableAt(xAxis[middleX][0], y+2)],
+    [y+3, isPassableAt(xAxis[middleX][0], y+3)],
+    [y+4, isPassableAt(xAxis[middleX][0], y+4)],
   ];
-
-  let lowX = xAxis.length;
-  for (i = 0; i < xAxis.length; i++) {
-    if (xAxis[i][1] > map.passableMin){
-      lowX = i;
+  for (i = 4; i >= 0; i--)
+    if (!yAxis[i][1])
       break;
-    }
-  }
-  let highX = 0;
-  for (i = xAxis.length - 1; i >= 0; i--) {
-    if (xAxis[i][1] > map.passableMin){
-      highX = i;
+  let lowY = i;
+  for (i = 4; i < xAxis.length; i++)
+    if (!yAxis[i][1])
       break;
-    }
-  }
-  // this nothing is good
-  if (lowX > highX) return [x, y];
+  let highY = i;
+  let middleY =  Math.trunc((highY - lowY) / 2 + lowY);
+  let betterX = xAxis[middleX][0];
+  let betterY = yAxis[middleY][0];
 
-  let lowY = yAxis.length;
-  for (i = 0; i < yAxis.length; i++) {
-    if (yAxis[i][1] > map.passableMin){
-      lowY = i;
-      break;
-    }
-  }
-  let highY = 0;
-  for (i = yAxis.length - 1; i >= 0; i--) {
-    if (yAxis[i][1] > map.passableMin){
-      highY = i;
-      break;
-    }
-  }
-  // nothing is better
-  if (lowY > highY) return [x, y];
-
-  let betterX = Math.trunc((highX - lowX) / 2) + lowX;
-  let betterY = Math.trunc((highY - lowY) / 2) + lowY;
-
-  //debugOut.lars_sez = betterX.toString() + ": " + Math.trunc(xAxis[betterX][0]).toString() + "  " + betterY.toString() + ": " + Math.trunc(yAxis[betterY][0]).toString();
-
-  return [xAxis[betterX][0], yAxis[betterY][0]];
-
+  return [betterX, betterY];
 }
 
 function degradeHintingColor() {
