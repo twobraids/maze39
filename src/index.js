@@ -418,7 +418,10 @@ function updatePlayerFromControls(dt) {
     // Chase touch when active
     const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (Input.touch.x / camera.z);
     const my = player.y - (ctx.canvas.height / 2 / camera.z) + (Input.touch.y / camera.z);
-    player.v = player.maxSpeed; // TODO: velocity from pointer distance?
+    var distance = Math.sqrt(Math.pow(my - player.y, 2) + Math.pow(mx - player.x, 2));
+    if (distance > 100) distance = 100;
+    const speedFactor = distance / 100;
+    player.v = player.maxSpeed * speedFactor; // TODO: velocity from pointer distance?
     player.r = Math.atan2(my - player.y, mx - player.x)
 
   } else if (Input.mouse.down || Input.keys[32]) {
