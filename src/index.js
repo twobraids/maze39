@@ -18,6 +18,22 @@ function Stack() {
   this.push = function(a_thing){
     return this.stack.push(a_thing);
   }
+  this.top = function() {
+    if (this.stack.length > 0) {
+      return this.stack[this.stack.length - 1];
+    }
+    return [0, 0];
+  }
+  this.noCloser = function(x, y, topDistance, otherDistance) {
+    if (this.stack.length == 0) return true;
+    if (distanceFrom(x, y, this.stack[this.stack.length - 1][0], this.stack[this.stack.length - 1][1]) < topDistance)
+      return false;
+
+    for (let i = 0; i < this.stack.length - 1; i++)
+      if (distanceFrom(x, y, this.stack[i][0], this.stack[i][1]) < otherDistance)
+         return false;
+    return true;
+  }
 }
 
 const DEBUG = true;
@@ -557,6 +573,10 @@ function isPassableAt(x, y) {
   return getPixelSumAt(x, y, map.pathData) > map.passableMin;
 }
 
+function distanceFrom(x1, y1, x2, y2) {
+  return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+}
+
 function suggestBetter(x, y) {
   var i;
   var xAxis = [
@@ -602,6 +622,10 @@ function suggestBetter(x, y) {
   let middleY =  Math.trunc((highY - lowY) / 2 + lowY);
   let betterX = xAxis[middleX][0];
   let betterY = yAxis[middleY][0];
+
+  if (lowY == -1 && lowX == -1 && highX == 9 && highY == 9 && player.breadcrumb_stack.noCloser(betterX, betterY, 50, 10)) {
+     player.breadcrumb_stack.push([betterX, betterY]);
+  }
 
   return [betterX, betterY];
 }
