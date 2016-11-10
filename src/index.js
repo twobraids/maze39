@@ -487,7 +487,8 @@ function updatePlayerFromScript(dt) {
 function updatePlayerMotionFromScript(dt) {
   let animationState = openAnimation.animationState;
   if (animationState == 2) {
-    player.r = Math.atan2(map.endY - player.y, map.endX - player.x);
+    let distanceFromEnd = distanceFrom(player.x, player.y, map.endX, map.endY);
+    player.r = Math.atan2((map.endY + distanceFromEnd / 2.0) - player.y, (map.endX) - player.x);
     player.v = 0;
     let tx = Math.cos(player.r) * player.maxSpeed * 5 * dt + player.x;
     let ty = Math.sin(player.r) * player.maxSpeed * 5 * dt + player.y;
@@ -501,7 +502,8 @@ function updatePlayerMotionFromScript(dt) {
     player.y = ty;
 
   } if (animationState == 5) {
-    player.r = Math.atan2(map.startY - player.y, map.startX - player.x);
+    let distanceFromStart = distanceFrom(player.x, player.y, map.startX, map.startY);
+    player.r = Math.atan2(map.startY + distanceFromStart / 2.0 - player.y, map.startX - player.x);
     player.v = 0;
     let tx = Math.cos(player.r) * player.maxSpeed * 6 * dt + player.x;
     let ty = Math.sin(player.r) * player.maxSpeed * 6 * dt + player.y;
