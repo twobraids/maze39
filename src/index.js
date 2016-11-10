@@ -90,6 +90,67 @@ const redMap = {
 
 const map = greenMap;
 
+const gamePlay = {
+  init: init,
+
+  update(dt) {
+    if (DEBUG) { statsUpdate.begin(); }
+    Input.update(dt);
+    updatePlayerFromControls(dt);
+    updatePlayerZoom(dt);
+    updatePlayerMotion(dt);
+    updateDebug();
+    if (DEBUG) { statsUpdate.end(); }
+  },
+
+  draw(dt) {
+    if (DEBUG) { statsDraw.begin(); }
+    clearCanvas();
+    ctx.save();
+    drawMaze(dt);
+    followAndZoom(dt);
+    drawArrows(dt);
+    drawUsedPaths(dt);
+    drawBreadCrumbs(dt);
+    drawPlayer(dt);
+    ctx.restore();
+    drawDebug(dt);
+    if (DEBUG) { statsDraw.end(); }
+  }
+}
+
+const openAnimation = {
+  animationState: 0,
+  animationTimer: false,
+
+  init: init,
+  update(dt) {
+    if (DEBUG) { statsUpdate.begin(); }
+    Input.update(dt);
+    updatePlayerFromScript(dt);
+    updatePlayerZoom(dt);
+    updatePlayerMotionFromScript(dt);
+    updateDebug();
+    if (DEBUG) { statsUpdate.end(); }
+  },
+  draw(dt) {
+    if (DEBUG) { statsDraw.begin(); }
+    clearCanvas();
+    ctx.save();
+    drawMaze(dt);
+    followAndZoom(dt);
+    drawArrows(dt);
+    drawMessages(dt);
+    drawPlayer(dt);
+    ctx.restore();
+    drawDebug(dt);
+    if (DEBUG) { statsDraw.end(); }
+  }
+}
+
+var gameState = openAnimation;
+
+
 const camera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
 const player = {
   x: 0,
@@ -108,7 +169,7 @@ const player = {
 };
 const updateTimer = { };
 const drawTimer = { };
-const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '', lars_sez: '' };
+const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '', gameState: '', lars_sez: '' };
 
 let gui, statsDraw, statsUpdate;
 
@@ -138,8 +199,6 @@ function load() {
 
     map.pathImg.removeEventListener('load', loadBaseMapImg);
 
-    player.preferredMap = map.pathImg;
-
     init();
   };
 
@@ -162,54 +221,17 @@ function init() {
   requestAnimFrame(draw);
 }
 
-
-const gameStates = {
-  start: introAnimation,
-  greenGame: greenGame,
-  redGame: redGame,
-  winAnimation: winAnimation,
-  loseAnimation: loseAnimation
-};
-
-var gameState = greenGame;
-
-function greenGame
-
-
-
 function update() {
   handleTimer('update', Date.now(), updateTimer, true, dt => {
-    if (DEBUG) { statsUpdate.begin(); }
-
-    Input.update(dt);
-    updatePlayer(dt);
-    updateDebug();
-
-    if (DEBUG) { statsUpdate.end(); }
+    gameState.update(dt)
   });
   setTimeout(update, TICK);
 }
 
 function draw(ts) {
   handleTimer('draw', ts, drawTimer, false, dt => {
-    if (DEBUG) { statsDraw.begin(); }
-
-    clearCanvas();
-    ctx.save();
-
-    drawMaze(dt);
-    followAndZoom(dt);
-    drawUsedPaths(dt);
-    drawBreadCrumbs(dt);
-    drawPlayer(dt);
-
-    ctx.restore();
-
-    drawDebug(dt);
-
-    if (DEBUG) { statsDraw.end(); }
+    gameState.draw(dt)
   });
-
   requestAnimFrame(draw);
 }
 
@@ -322,7 +344,7 @@ function draw_a_path(a_path) {
   }
 }
 
-function drawUsedPaths(dt) {
+function drawArrows(dt) {
   ctx.save();
   ctx.lineWidth = "4";
   ctx.lineCap = "round";
@@ -342,13 +364,21 @@ function drawUsedPaths(dt) {
   ctx.moveTo(map.endArrowPoint[0], map.endArrowPoint[1]);
   ctx.lineTo(map.endArrowRightWing[0], map.endArrowRightWing[1]);
   ctx.stroke();
+  ctx.restore();
+}
 
+function drawUsedPaths(dt) {
+  ctx.save();
+  ctx.lineWidth = "4";
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = map.solutionColor;
   if (player.current_path.length > 1) {
-    let [last_x, last_y] = player.current_path[player.current_path.length - 1];
-      if (Math.abs(last_x - player.x) > 6 || Math.abs(last_y - player.y) > 6) {
-        player.current_path.push([player.x, player.y]);
-      }
-      draw_a_path(player.current_path);
+  let [last_x, last_y] = player.current_path[player.current_path.length - 1];
+    if (Math.abs(last_x - player.x) > 6 || Math.abs(last_y - player.y) > 6) {
+      player.current_path.push([player.x, player.y]);
+    }
+    draw_a_path(player.current_path);
   } else {
     player.current_path.push([player.x, player.y]);
   }
@@ -398,10 +428,114 @@ const slideAngles = [
   Math.PI * 1/3, -Math.PI * 1/3*/
 ];
 
-function updatePlayer(dt) {
-  updatePlayerFromControls(dt);
-  updatePlayerZoom(dt);
-  updatePlayerMotion(dt);
+function incrementAnimationState() {
+  if (openAnimation.animationTimer) {
+    window.clearInterval(openAnimation.animationTimer);
+    openAnimation.animationTimer = false;
+  }
+  openAnimation.animationState += 1;
+}
+
+function updatePlayerFromScript(dt) {
+  let animationState = openAnimation.animationState;
+  if (animationState == 0) {
+    player.v = 0;
+    if (!openAnimation.animationTimer)
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 2000);
+    console.log('updatePlayerFromScript 0');
+
+  } else if (animationState == 1) {
+    console.log('updatePlayerFromScript 1');
+    player.v = 10;
+    if (!openAnimation.animationTimer)
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+
+  } else if (animationState == 2) {
+    console.log('updatePlayerFromScript 2');
+    player.v = 0;
+
+  } else if (animationState == 3) {
+    console.log('updatePlayerFromScript 3');
+    player.v = 10;
+    if (!openAnimation.animationTimer)
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+
+  } else if (animationState == 4) {
+    console.log('updatePlayerFromScript 4');
+    player.v = 10;
+    if (!openAnimation.animationTimer)
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+
+  } else if (animationState == 5) {
+   console.log('updatePlayerFromScript 5');
+    player.v = 0;
+
+  } else if (animationState == 6) {
+    console.log('updatePlayerFromScript 6');
+    gameState = gamePlay
+  }
+}
+
+function updatePlayerMotionFromScript(dt) {
+  let animationState = openAnimation.animationState;
+  if (animationState == 2) {
+    player.r = Math.atan2(map.endY - player.y, map.endX - player.x);
+    player.v = 0;
+    let tx = Math.cos(player.r) * player.maxSpeed * 3 * dt + player.x;
+    let ty = Math.sin(player.r) * player.maxSpeed * 3 * dt + player.y;
+
+    if (distanceFrom(tx, ty, map.endX, map.endY) < distanceFrom(tx, ty, player.x, player.y)) {
+      tx = map.endX;
+      ty = map.endY;
+      incrementAnimationState();
+    }
+    player.x = tx;
+    player.y = ty;
+
+  } if (animationState == 5) {
+    player.r = Math.atan2(map.startY - player.y, map.startX - player.x);
+    player.v = 0;
+    let tx = Math.cos(player.r) * player.maxSpeed * 3 * dt + player.x;
+    let ty = Math.sin(player.r) * player.maxSpeed * 3 * dt + player.y;
+
+    if (distanceFrom(tx, ty, map.startX, map.startY) < distanceFrom(tx, ty, player.x, player.y)) {
+      tx = map.startX;
+      ty = map.startY;
+      incrementAnimationState();
+    }
+    player.x = tx;
+    player.y = ty;
+  }
+}
+
+function drawMessages(dt) {
+  let animationState = openAnimation.animationState;
+  if (animationState == 1) {
+    ctx.save();
+    ctx.strokeStyle = '#ff0';
+    ctx.fillStyle = '#ff0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("You're going to start here...", player.x, player.y - 42);
+    ctx.restore();
+
+  } else if (animationState == 3) {
+    ctx.save();
+    ctx.strokeStyle = '#ff0';
+    ctx.fillStyle = '#ff0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("You want to exit here.", player.x, player.y - 42);
+    ctx.restore();
+  } else if (animationState == 4) {
+    ctx.save();
+    ctx.strokeStyle = '#fa0';
+    ctx.fillStyle = '#fa0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("You've only got an hour.", player.x, player.y - 42);
+    ctx.restore();
+  }
 }
 
 function updatePlayerFromControls(dt) {
@@ -461,8 +595,7 @@ function updatePlayerFromControls(dt) {
     var distance = Math.sqrt(Math.pow(my - player.y, 2) + Math.pow(mx - player.x, 2));
     if (distance > 40) distance = 40;
     const speedFactor = distance / 40;
-    player.v = player.maxSpeed * speedFactor; // TODO: velocity from pointer distance?
-    //debugOut.lars_sez = Math.round(distance).toString() + " " + player.v.toString();
+    player.v = player.maxSpeed * speedFactor;
     player.r = Math.atan2(my - player.y, mx - player.x);
 
   } else if (typeof(Input.gamepad.axis0) != 'undefined' && typeof(Input.gamepad.axis1) != 'undefined') {
@@ -480,8 +613,10 @@ function updatePlayerZoom(dt) {
   if (player.v !== 0) {
     camera.zdelay = camera.zdelaymax;
     camera.z += 0.3;
-    if (camera.z > camera.zmax) { camera.z = camera.zmax; }
-  } else {
+    if (camera.z > camera.zmax) {
+      camera.z = camera.zmax;
+    }
+    } else {
     if (camera.zdelay > 0) {
       camera.zdelay -= dt;
       return;
