@@ -11,19 +11,19 @@ import Input from './lib/input';
 
 // a simple minded stack structure used to store breadcrumbs
 function Stack() {
-  this.stack = new Array();
+  this.stack = [];
   this.pop = function(){
     return this.stack.pop();
-  }
+  };
   this.push = function(a_thing){
     return this.stack.push(a_thing);
-  }
+  };
   this.top = function() {
     if (this.stack.length > 0) {
       return this.stack[this.stack.length - 1];
     }
     return [0, 0];
-  }
+  };
   this.noCloser = function(x, y, topDistance, otherDistance) {
     if (this.stack.length == 0) return true;
     if (distanceFrom(x, y, this.stack[this.stack.length - 1][0], this.stack[this.stack.length - 1][1]) < topDistance)
@@ -36,7 +36,7 @@ function Stack() {
   }
 }
 
-const DEBUG = true;
+const DEBUG = false;
 const TICK = 1000 / 60;
 
 // TODO: Load this from an external JSON URL for Issue #13
@@ -65,11 +65,11 @@ const greenMap = {
 };
 
 const redMap = {
-  baseMapSrc: 'mazes/Firefox.png',
-  baseMapTilePath: 'mazes/Firefox',
-  pathSrc: 'mazes/Firefox.png',
+  baseMapSrc: greenMap.baseMapSrc,
+  baseMapTilePath: greenMap.baseMapTilePath,
+  pathSrc: greenMap.pathSrc,
   solutionSrc: 'mazes/Firefox.red.png',
-  passableMin: 67,
+  passableMin: greenMap.passableMin,
   startX: 487, startY: 419,
   endX: 3228, endY: 427,
   startArrowButt: [486, 383],
@@ -81,10 +81,10 @@ const redMap = {
   endArrowLeftWing: [3204,417],
   endArrowRightWing: [3213, 406],
   solutionColor: "#f00",
-  width: 4000, height: 4000,
-  tileWidth: 512, tileHeight: 512,
-  tiles: {},
-  pathData: [],
+  width: greenMap.width, height: greenMap.height,
+  tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
+  tiles: greenMap.tiles,
+  pathData: greenMap.pathData,
   solutionData: []
 };
 
@@ -116,7 +116,6 @@ const ctx = document.getElementById('viewport').getContext('2d');
 ctx.canvas.width = map.width;
 ctx.canvas.height = map.height;
 
-
 function load() {
   // HACK: Render the whole path map at original scale and grab image data
   // array to consult for navigation. Seems wasteful of memory, but performs
@@ -142,7 +141,7 @@ function load() {
     player.preferredMap = map.pathImg;
 
     init();
-  }
+  };
 
   map.pathImg.addEventListener('load', loadBaseMapImg);
 }
@@ -162,6 +161,21 @@ function init() {
   setTimeout(update, TICK);
   requestAnimFrame(draw);
 }
+
+
+const gameStates = {
+  start: introAnimation,
+  greenGame: greenGame,
+  redGame: redGame,
+  winAnimation: winAnimation,
+  loseAnimation: loseAnimation
+};
+
+var gameState = greenGame;
+
+function greenGame
+
+
 
 function update() {
   handleTimer('update', Date.now(), updateTimer, true, dt => {
@@ -392,7 +406,7 @@ function updatePlayer(dt) {
 
 function updatePlayerFromControls(dt) {
   // Start from zero velocity if no controls are applied
-  player.v = 0
+  player.v = 0;
 
   // Query cursor keys & WASD & gamepad d-pad
   const dleft  = (Input.keys[65] || Input.keys[37] || Input.gamepad.button13);
