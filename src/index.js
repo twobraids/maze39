@@ -95,6 +95,7 @@ const gamePlay = {
 
   update(dt) {
     if (DEBUG) { statsUpdate.begin(); }
+    camera = gameCamera;
     Input.update(dt);
     updatePlayerFromControls(dt);
     updatePlayerZoom(dt);
@@ -126,6 +127,7 @@ const openAnimation = {
   init: init,
   update(dt) {
     if (DEBUG) { statsUpdate.begin(); }
+    camera = animationCamera;
     Input.update(dt);
     updatePlayerFromScript(dt);
     updatePlayerZoom(dt);
@@ -151,7 +153,9 @@ const openAnimation = {
 var gameState = openAnimation;
 
 
-const camera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
+const gameCamera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
+const animationCamera = { x: 0, y: 0, z: 0.75, zmin: 0.25, zmax: 5, zdelay: 0, zdelaymax: 500 };
+var camera = animationCamera;
 const player = {
   x: 0,
   y: 0,
@@ -442,36 +446,40 @@ function updatePlayerFromScript(dt) {
     player.v = 0;
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 2000);
-    console.log('updatePlayerFromScript 0');
 
   } else if (animationState == 1) {
-    console.log('updatePlayerFromScript 1');
     player.v = 10;
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
   } else if (animationState == 2) {
-    console.log('updatePlayerFromScript 2');
     player.v = 0;
 
   } else if (animationState == 3) {
-    console.log('updatePlayerFromScript 3');
     player.v = 10;
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
   } else if (animationState == 4) {
-    console.log('updatePlayerFromScript 4');
     player.v = 10;
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
   } else if (animationState == 5) {
-   console.log('updatePlayerFromScript 5');
     player.v = 0;
 
   } else if (animationState == 6) {
-    console.log('updatePlayerFromScript 6');
+    player.v = 10;
+    if (!openAnimation.animationTimer)
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+
+  } else if (animationState == 7) {
+    player.v = 10;
+    if (!openAnimation.animationTimer)
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+
+  } else if (animationState == 8) {
+    camera = gameCamera;
     gameState = gamePlay
   }
 }
@@ -481,8 +489,8 @@ function updatePlayerMotionFromScript(dt) {
   if (animationState == 2) {
     player.r = Math.atan2(map.endY - player.y, map.endX - player.x);
     player.v = 0;
-    let tx = Math.cos(player.r) * player.maxSpeed * 3 * dt + player.x;
-    let ty = Math.sin(player.r) * player.maxSpeed * 3 * dt + player.y;
+    let tx = Math.cos(player.r) * player.maxSpeed * 5 * dt + player.x;
+    let ty = Math.sin(player.r) * player.maxSpeed * 5 * dt + player.y;
 
     if (distanceFrom(tx, ty, map.endX, map.endY) < distanceFrom(tx, ty, player.x, player.y)) {
       tx = map.endX;
@@ -495,8 +503,8 @@ function updatePlayerMotionFromScript(dt) {
   } if (animationState == 5) {
     player.r = Math.atan2(map.startY - player.y, map.startX - player.x);
     player.v = 0;
-    let tx = Math.cos(player.r) * player.maxSpeed * 3 * dt + player.x;
-    let ty = Math.sin(player.r) * player.maxSpeed * 3 * dt + player.y;
+    let tx = Math.cos(player.r) * player.maxSpeed * 6 * dt + player.x;
+    let ty = Math.sin(player.r) * player.maxSpeed * 6 * dt + player.y;
 
     if (distanceFrom(tx, ty, map.startX, map.startY) < distanceFrom(tx, ty, player.x, player.y)) {
       tx = map.startX;
@@ -527,13 +535,34 @@ function drawMessages(dt) {
     ctx.textAlign = 'center';
     ctx.fillText("You want to exit here.", player.x, player.y - 42);
     ctx.restore();
+
   } else if (animationState == 4) {
     ctx.save();
-    ctx.strokeStyle = '#fa0';
-    ctx.fillStyle = '#fa0';
+    ctx.strokeStyle = '#fd0';
+    ctx.fillStyle = '#fd0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
     ctx.fillText("You've only got an hour.", player.x, player.y - 42);
+    ctx.restore();
+
+  } else if (animationState == 6) {
+    ctx.save();
+    ctx.strokeStyle = '#ff0';
+    ctx.fillStyle = '#ff0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("Use <backspace> to return", player.x, player.y - 62);
+    ctx.fillText("to a numbered breadcrumb", player.x, player.y - 42);
+    ctx.restore();
+
+  } else if (animationState == 7) {
+    ctx.save();
+    ctx.strokeStyle = '#f00';
+    ctx.fillStyle = '#f00';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("If the player target starts turning", player.x, player.y - 62);
+    ctx.fillText("red, you're on the wrong path", player.x, player.y - 42);
     ctx.restore();
   }
 }
@@ -616,13 +645,15 @@ function updatePlayerZoom(dt) {
     if (camera.z > camera.zmax) {
       camera.z = camera.zmax;
     }
-    } else {
+  } else {
     if (camera.zdelay > 0) {
       camera.zdelay -= dt;
       return;
     }
     camera.z -= 0.2;
-    if (camera.z < camera.zmin) { camera.z = camera.zmin; }
+    if (camera.z < camera.zmin) {
+      camera.z = camera.zmin;
+    }
   }
 }
 
