@@ -52,10 +52,10 @@ const greenMap = {
   startArrowPoint: [509, 418],
   startArrowLeftWing: [507, 411],
   startArrowRightWing: [517, 417],
-  endArrowButt: [3259, 420],
-  endArrowPoint: [3262, 399],
-  endArrowLeftWing: [3254,405],
-  endArrowRightWing: [3268, 407],
+  endArrowButt: [3259, 415],
+  endArrowPoint: [3262, 394],
+  endArrowLeftWing: [3254,400],
+  endArrowRightWing: [3268, 402],
   solutionColor: "#0f0",
   width: 4000, height: 4000,
   tileWidth: 512, tileHeight: 512,
@@ -412,6 +412,7 @@ function drawBreadCrumbs(dt) {
 function initPlayer() {
   player.x = map.startX;
   player.y = map.startY;
+  player.color = 4095;
 }
 
 const directions = {
@@ -456,12 +457,12 @@ function updatePlayerFromScript(dt) {
     player.v = 0;
 
   } else if (animationState == 3) {
-    player.v = 10;
+    player.v = 10; // force zoom in
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
   } else if (animationState == 4) {
-    player.v = 10;
+    player.v = 10; // force zoom in
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
@@ -469,16 +470,38 @@ function updatePlayerFromScript(dt) {
     player.v = 0;
 
   } else if (animationState == 6) {
-    player.v = 10;
-    if (!openAnimation.animationTimer)
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+    player.v = 10; // force zoom in
+    if (!openAnimation.animationTimer) {
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 4000);
+      player.colorOverride = true;
+      player.colorHintingTimer = window.setInterval(degradeHintingColor, 200);
+    }
 
   } else if (animationState == 7) {
-    player.v = 10;
+    if (player.colorHintingTimer) {
+      window.clearInterval(player.colorHintingTimer);
+      player.colorHintingTimer = false;
+      player.colorOverride = false;
+    }
+    player.v = 10; // force zoom in
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
   } else if (animationState == 8) {
+    player.v = 10; // force zoom in
+    if (!openAnimation.animationTimer) {
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 2000);
+      player.colorOverride = true;
+      player.colorHintingTimer = window.setInterval(upgradeHintingColor, 150);
+    }
+
+  } else if (animationState == 9) {
+    if (player.colorHintingTimer) {
+      window.clearInterval(player.colorHintingTimer);
+      player.colorHintingTimer = false;
+      player.colorOverride = false;
+    }
+    initPlayer();
     camera = gameCamera;
     gameState = gamePlay
   }
@@ -522,50 +545,60 @@ function drawMessages(dt) {
   let animationState = openAnimation.animationState;
   if (animationState == 1) {
     ctx.save();
-    ctx.strokeStyle = '#ff0';
-    ctx.fillStyle = '#ff0';
+    ctx.strokeStyle = '#0f0';
+    ctx.fillStyle = '#0f0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("You're going to start here...", player.x, player.y - 42);
+    ctx.fillText("You're going to start here...", map.startX, map.startY - 42);
     ctx.restore();
 
   } else if (animationState == 3) {
     ctx.save();
-    ctx.strokeStyle = '#ff0';
-    ctx.fillStyle = '#ff0';
+    ctx.strokeStyle = '#0f0';
+    ctx.fillStyle = '#0f0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("You want to exit here.", player.x, player.y - 42);
+    ctx.fillText("You want to exit here.",  map.endX, map.endY - 52);
     ctx.restore();
 
   } else if (animationState == 4) {
     ctx.save();
-    ctx.strokeStyle = '#fd0';
-    ctx.fillStyle = '#fd0';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText("You've only got an hour.", player.x, player.y - 42);
-    ctx.restore();
-
-  } else if (animationState == 6) {
-    ctx.save();
     ctx.strokeStyle = '#ff0';
     ctx.fillStyle = '#ff0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("Use <backspace> to return", player.x, player.y - 62);
-    ctx.fillText("to a numbered breadcrumb", player.x, player.y - 42);
+    ctx.fillText("You've only got an hour.", map.endX, map.endY - 52);
     ctx.restore();
 
-  } else if (animationState == 7) {
+  } else if (animationState == 6) {
     ctx.save();
     ctx.strokeStyle = '#f00';
     ctx.fillStyle = '#f00';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("If the player target starts turning", player.x, player.y - 62);
-    ctx.fillText("red, you're on the wrong path", player.x, player.y - 42);
+    ctx.fillText("If the player target gradually turns", map.startX, map.startY - 62);
+    ctx.fillText("red, you're on the wrong path", map.startX, map.startY - 42);
     ctx.restore();
+
+  } else if (animationState == 7) {
+    ctx.save();
+    ctx.strokeStyle = '#ff0';
+    ctx.fillStyle = '#ff0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("Use <backspace> to return", map.startX, map.startY - 62);
+    ctx.fillText("to a numbered breadcrumb", map.startX, map.startY - 42);
+    ctx.restore();
+
+  } else if (animationState == 8) {
+    ctx.save();
+    ctx.strokeStyle = '#0f0';
+    ctx.fillStyle = '#0f0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("GO!", map.startX, map.startY - 52);
+    ctx.restore();
+
   }
 }
 
@@ -818,8 +851,14 @@ function degradeHintingColor() {
   }
 }
 
+function upgradeHintingColor() {
+  if (player.color < 4094) {
+    player.color += 17;
+  }
+}
+
 function drawPlayer(dt) {
-  let inSolutionPath = getPixelAvgAt(player.x, player.y, map.solutionData) != 0;
+  let inSolutionPath = getPixelAvgAt(player.x, player.y, map.solutionData) != 0 && !player.colorOverride;
 
   if (player.colorHinting && !player.colorHintingTimer && !inSolutionPath) {
     // degrade the player color every 60 seconds with a timer
