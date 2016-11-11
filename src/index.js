@@ -88,7 +88,10 @@ const redMap = {
   solutionData: []
 };
 
-const map = greenMap;
+const possibleGames = [redMap, greenMap];
+
+var map = possibleGames[getRandomInt(0, possibleGames.length)];
+
 
 const gamePlay = {
   init: init,
@@ -181,10 +184,17 @@ const ctx = document.getElementById('viewport').getContext('2d');
 ctx.canvas.width = map.width;
 ctx.canvas.height = map.height;
 
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
 function load() {
   // HACK: Render the whole path map at original scale and grab image data
   // array to consult for navigation. Seems wasteful of memory, but performs
   // way better than constant getImageData() calls
+
   map.pathImg = new Image();
   map.pathImg.src = map.pathSrc;
 
@@ -838,7 +848,7 @@ function suggestBetter(x, y) {
   let betterX = xAxis[middleX][0];
   let betterY = yAxis[middleY][0];
 
-  if (lowY == -1 && lowX == -1 && highX == 9 && highY == 9 && player.breadcrumb_stack.noCloser(betterX, betterY, 50, 10)) {
+  if (lowY == -1 && lowX == -1 && highX == 9 && highY == 9 && player.breadcrumb_stack.noCloser(betterX, betterY, 50, 15)) {
      player.breadcrumb_stack.push([betterX, betterY]);
   }
 
