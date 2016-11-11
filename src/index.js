@@ -11,17 +11,34 @@ import Input from './lib/input';
 
 // a simple minded stack structure used to store breadcrumbs
 function Stack() {
-  this.stack = new Array();
+  this.stack = [];
   this.pop = function(){
     return this.stack.pop();
-  }
+  };
   this.push = function(a_thing){
     return this.stack.push(a_thing);
+  };
+  this.top = function() {
+    if (this.stack.length > 0) {
+      return this.stack[this.stack.length - 1];
+    }
+    return [0, 0];
+  };
+  this.noCloser = function(x, y, topDistance, otherDistance) {
+    if (this.stack.length == 0) return true;
+    if (distanceFrom(x, y, this.stack[this.stack.length - 1][0], this.stack[this.stack.length - 1][1]) < topDistance)
+      return false;
+
+    for (let i = 0; i < this.stack.length - 1; i++)
+      if (distanceFrom(x, y, this.stack[i][0], this.stack[i][1]) < otherDistance)
+         return false;
+    return true;
   }
 }
 
-const DEBUG = true;
+const DEBUG = false;
 const TICK = 1000 / 60;
+const PI2 = Math.PI * 2;
 
 // TODO: Load this from an external JSON URL for Issue #13
 const greenMap = {
@@ -36,10 +53,10 @@ const greenMap = {
   startArrowPoint: [509, 418],
   startArrowLeftWing: [507, 411],
   startArrowRightWing: [517, 417],
-  endArrowButt: [3259, 420],
-  endArrowPoint: [3262, 399],
-  endArrowLeftWing: [3254,405],
-  endArrowRightWing: [3268, 407],
+  endArrowButt: [3259, 415],
+  endArrowPoint: [3262, 394],
+  endArrowLeftWing: [3254,400],
+  endArrowRightWing: [3268, 402],
   solutionColor: "#0f0",
   width: 4000, height: 4000,
   tileWidth: 512, tileHeight: 512,
@@ -49,11 +66,11 @@ const greenMap = {
 };
 
 const redMap = {
-  baseMapSrc: 'mazes/Firefox.png',
-  baseMapTilePath: 'mazes/Firefox',
-  pathSrc: 'mazes/Firefox.png',
+  baseMapSrc: greenMap.baseMapSrc,
+  baseMapTilePath: greenMap.baseMapTilePath,
+  pathSrc: greenMap.pathSrc,
   solutionSrc: 'mazes/Firefox.red.png',
-  passableMin: 67,
+  passableMin: greenMap.passableMin,
   startX: 487, startY: 419,
   endX: 3228, endY: 427,
   startArrowButt: [486, 383],
@@ -65,20 +82,91 @@ const redMap = {
   endArrowLeftWing: [3204,417],
   endArrowRightWing: [3213, 406],
   solutionColor: "#f00",
-  width: 4000, height: 4000,
-  tileWidth: 512, tileHeight: 512,
-  tiles: {},
-  pathData: [],
+  width: greenMap.width, height: greenMap.height,
+  tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
+  tiles: greenMap.tiles,
+  pathData: greenMap.pathData,
   solutionData: []
 };
 
-const map = greenMap;
+const possibleGames = [redMap, greenMap];
 
-const camera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
+var map = possibleGames[getRandomInt(0, possibleGames.length)];
+
+
+const gamePlay = {
+  init: init,
+
+  update(dt) {
+    if (DEBUG) { statsUpdate.begin(); }
+    camera = gameCamera;
+    Input.update(dt);
+    updatePlayerFromControls(dt);
+    updatePlayerZoom(dt);
+    updatePlayerMotion(dt);
+    updateDebug();
+    if (DEBUG) { statsUpdate.end(); }
+  },
+
+  draw(dt) {
+    if (DEBUG) { statsDraw.begin(); }
+    clearCanvas();
+    ctx.save();
+    drawMaze(dt);
+    followAndZoom(dt);
+    drawArrows(dt);
+    drawUsedPaths(dt);
+    drawBreadCrumbs(dt);
+    drawPlayer(dt);
+    ctx.restore();
+    drawDebug(dt);
+    if (DEBUG) { statsDraw.end(); }
+  }
+}
+
+const openAnimation = {
+  animationState: 0,
+  animationTimer: false,
+
+  init: init,
+  update(dt) {
+    if (DEBUG) { statsUpdate.begin(); }
+    camera = animationCamera;
+    Input.update(dt);
+    updatePlayerFromScript(dt);
+    updatePlayerZoom(dt);
+    updatePlayerMotionFromScript(dt);
+    updateDebug();
+    if (DEBUG) { statsUpdate.end(); }
+  },
+  draw(dt) {
+    if (DEBUG) { statsDraw.begin(); }
+    clearCanvas();
+    ctx.save();
+    drawMaze(dt);
+    followAndZoom(dt);
+    drawArrows(dt);
+    drawMessages(dt);
+    drawPlayer(dt);
+    ctx.restore();
+    drawDebug(dt);
+    if (DEBUG) { statsDraw.end(); }
+  }
+}
+
+var gameState = openAnimation;
+
+
+const gameCamera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
+const animationCamera = { x: 0, y: 0, z: 0.75, zmin: 0.25, zmax: 5, zdelay: 0, zdelaymax: 500 };
+var camera = animationCamera;
 const player = {
   x: 0,
   y: 0,
-  r: 0,
+  x_history: [],
+  y_history: [],
+  r: Math.PI * (3/2),
+  r_history: [],
   v: 0,
   maxSpeed: 130 / 1000,
   vibrating: 0,
@@ -92,7 +180,8 @@ const player = {
 };
 const updateTimer = { };
 const drawTimer = { };
-const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '', lars_sez: '' };
+const debugIn = { tileGrid: false };
+const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '', gameState: '', lars_sez: '' };
 
 let gui, statsDraw, statsUpdate;
 
@@ -100,11 +189,17 @@ const ctx = document.getElementById('viewport').getContext('2d');
 ctx.canvas.width = map.width;
 ctx.canvas.height = map.height;
 
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min)) + min;
+}
 
 function load() {
   // HACK: Render the whole path map at original scale and grab image data
   // array to consult for navigation. Seems wasteful of memory, but performs
   // way better than constant getImageData() calls
+
   map.pathImg = new Image();
   map.pathImg.src = map.pathSrc;
 
@@ -123,10 +218,8 @@ function load() {
 
     map.pathImg.removeEventListener('load', loadBaseMapImg);
 
-    player.preferredMap = map.pathImg;
-
     init();
-  }
+  };
 
   map.pathImg.addEventListener('load', loadBaseMapImg);
 }
@@ -149,37 +242,15 @@ function init() {
 
 function update() {
   handleTimer('update', Date.now(), updateTimer, true, dt => {
-    if (DEBUG) { statsUpdate.begin(); }
-
-    Input.update(dt);
-    updatePlayer(dt);
-    updateDebug();
-
-    if (DEBUG) { statsUpdate.end(); }
+    gameState.update(dt)
   });
   setTimeout(update, TICK);
 }
 
 function draw(ts) {
   handleTimer('draw', ts, drawTimer, false, dt => {
-    if (DEBUG) { statsDraw.begin(); }
-
-    clearCanvas();
-    ctx.save();
-
-    drawMaze(dt);
-    followAndZoom(dt);
-    drawUsedPaths(dt);
-    drawBreadCrumbs(dt);
-    drawPlayer(dt);
-
-    ctx.restore();
-
-    drawDebug(dt);
-
-    if (DEBUG) { statsDraw.end(); }
+    gameState.draw(dt)
   });
-
   requestAnimFrame(draw);
 }
 
@@ -272,6 +343,14 @@ function drawMaze(dt) {
           x, y, map.tileWidth * camera.z, map.tileHeight * camera.z
         );
       }
+
+      if (DEBUG && debugIn.tileGrid) {
+        ctx.strokeStyle = (col >= 0 && row >= 0 && col < map.tileCols && row < map.tileRows) ? '#0a0' : '#a00';
+        ctx.strokeRect(x, y, map.tileWidth * camera.z, map.tileHeight * camera.z);
+
+        ctx.strokeStyle = '#fff';
+        ctx.strokeText(`${row}x${col}`, x + 12, y + 12);
+      }
     }
   }
 }
@@ -292,7 +371,7 @@ function draw_a_path(a_path) {
   }
 }
 
-function drawUsedPaths(dt) {
+function drawArrows(dt) {
   ctx.save();
   ctx.lineWidth = "4";
   ctx.lineCap = "round";
@@ -312,13 +391,21 @@ function drawUsedPaths(dt) {
   ctx.moveTo(map.endArrowPoint[0], map.endArrowPoint[1]);
   ctx.lineTo(map.endArrowRightWing[0], map.endArrowRightWing[1]);
   ctx.stroke();
+  ctx.restore();
+}
 
+function drawUsedPaths(dt) {
+  ctx.save();
+  ctx.lineWidth = "4";
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = map.solutionColor;
   if (player.current_path.length > 1) {
-    let [last_x, last_y] = player.current_path[player.current_path.length - 1];
-      if (Math.abs(last_x - player.x) > 6 || Math.abs(last_y - player.y) > 6) {
-        player.current_path.push([player.x, player.y]);
-      }
-      draw_a_path(player.current_path);
+  let [last_x, last_y] = player.current_path[player.current_path.length - 1];
+    if (Math.abs(last_x - player.x) > 6 || Math.abs(last_y - player.y) > 6) {
+      player.current_path.push([player.x, player.y]);
+    }
+    draw_a_path(player.current_path);
   } else {
     player.current_path.push([player.x, player.y]);
   }
@@ -348,6 +435,14 @@ function drawBreadCrumbs(dt) {
 function initPlayer() {
   player.x = map.startX;
   player.y = map.startY;
+  player.color = 4095;
+  player.sprite = {
+   rings: [
+    { t: 0, delay: 0,   startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000 },
+    { t: 0, delay: 300, startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000 },
+    { t: 0, delay: 600, startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000 }
+   ]
+  };
 }
 
 const directions = {
@@ -368,15 +463,178 @@ const slideAngles = [
   Math.PI * 1/3, -Math.PI * 1/3*/
 ];
 
-function updatePlayer(dt) {
-  updatePlayerFromControls(dt);
-  updatePlayerZoom(dt);
-  updatePlayerMotion(dt);
+function incrementAnimationState() {
+  if (openAnimation.animationTimer) {
+    window.clearInterval(openAnimation.animationTimer);
+    openAnimation.animationTimer = false;
+  }
+  openAnimation.animationState += 1;
+}
+
+function updatePlayerFromScript(dt) {
+  let animationState = openAnimation.animationState;
+  if (animationState == 0) {
+    player.v = 0;
+    if (!openAnimation.animationTimer)
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 2000);
+
+  } else if (animationState == 1) {
+    player.v = 10;
+    if (!openAnimation.animationTimer)
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+
+  } else if (animationState == 2) {
+    player.v = 0;
+
+  } else if (animationState == 3) {
+    player.v = 10; // force zoom in
+    if (!openAnimation.animationTimer)
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+
+  } else if (animationState == 4) {
+    player.v = 10; // force zoom in
+    if (!openAnimation.animationTimer)
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+
+  } else if (animationState == 5) {
+    player.v = 0;
+
+  } else if (animationState == 6) {
+    player.v = 10; // force zoom in
+    if (!openAnimation.animationTimer) {
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 4000);
+      player.colorOverride = true;
+      player.colorHintingTimer = window.setInterval(degradeHintingColor, 200);
+    }
+
+  } else if (animationState == 7) {
+    if (player.colorHintingTimer) {
+      window.clearInterval(player.colorHintingTimer);
+      player.colorHintingTimer = false;
+      player.colorOverride = false;
+    }
+    player.v = 10; // force zoom in
+    if (!openAnimation.animationTimer)
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+
+  } else if (animationState == 8) {
+    player.v = 10; // force zoom in
+    if (!openAnimation.animationTimer) {
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 2000);
+      player.colorOverride = true;
+      player.colorHintingTimer = window.setInterval(upgradeHintingColor, 150);
+    }
+
+  } else if (animationState == 9) {
+    if (player.colorHintingTimer) {
+      window.clearInterval(player.colorHintingTimer);
+      player.colorHintingTimer = false;
+      player.colorOverride = false;
+    }
+    initPlayer();
+    camera = gameCamera;
+    gameState = gamePlay
+  }
+}
+
+function updatePlayerMotionFromScript(dt) {
+  let animationState = openAnimation.animationState;
+  if (animationState == 2) {
+    let distanceFromEnd = distanceFrom(player.x, player.y, map.endX, map.endY);
+    player.r = Math.atan2((map.endY + distanceFromEnd / 2.0) - player.y, (map.endX) - player.x);
+    player.v = 0;
+    let tx = Math.cos(player.r) * player.maxSpeed * 5 * dt + player.x;
+    let ty = Math.sin(player.r) * player.maxSpeed * 5 * dt + player.y;
+
+    if (distanceFrom(tx, ty, map.endX, map.endY) < distanceFrom(tx, ty, player.x, player.y)) {
+      tx = map.endX;
+      ty = map.endY;
+      incrementAnimationState();
+    }
+    player.x = tx;
+    player.y = ty;
+
+  } if (animationState == 5) {
+    let distanceFromStart = distanceFrom(player.x, player.y, map.startX, map.startY);
+    player.r = Math.atan2(map.startY + distanceFromStart / 2.0 - player.y, map.startX - player.x);
+    player.v = 0;
+    let tx = Math.cos(player.r) * player.maxSpeed * 6 * dt + player.x;
+    let ty = Math.sin(player.r) * player.maxSpeed * 6 * dt + player.y;
+
+    if (distanceFrom(tx, ty, map.startX, map.startY) < distanceFrom(tx, ty, player.x, player.y)) {
+      tx = map.startX;
+      ty = map.startY;
+      incrementAnimationState();
+    }
+    player.x = tx;
+    player.y = ty;
+  }
+}
+
+function drawMessages(dt) {
+  let animationState = openAnimation.animationState;
+  if (animationState == 1) {
+    ctx.save();
+    ctx.strokeStyle = '#0f0';
+    ctx.fillStyle = '#0f0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("You're going to start here...", map.startX, map.startY - 42);
+    ctx.restore();
+
+  } else if (animationState == 3) {
+    ctx.save();
+    ctx.strokeStyle = '#0f0';
+    ctx.fillStyle = '#0f0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("You want to exit here.",  map.endX, map.endY - 52);
+    ctx.restore();
+
+  } else if (animationState == 4) {
+    ctx.save();
+    ctx.strokeStyle = '#ff0';
+    ctx.fillStyle = '#ff0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("You've only got an hour.", map.endX, map.endY - 52);
+    ctx.restore();
+
+  } else if (animationState == 6) {
+    ctx.save();
+    ctx.strokeStyle = '#f00';
+    ctx.fillStyle = '#f00';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("If the player target gradually turns", map.startX, map.startY - 62);
+    ctx.fillText("red, you're on the wrong path", map.startX, map.startY - 42);
+    ctx.restore();
+
+  } else if (animationState == 7) {
+    ctx.save();
+    ctx.strokeStyle = '#ff0';
+    ctx.fillStyle = '#ff0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("Use <backspace> to return", map.startX, map.startY - 62);
+    ctx.fillText("to a numbered breadcrumb", map.startX, map.startY - 42);
+    ctx.restore();
+
+  } else if (animationState == 8) {
+    ctx.save();
+    ctx.strokeStyle = '#0f0';
+    ctx.fillStyle = '#0f0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("GO!", map.startX, map.startY - 52);
+    ctx.restore();
+
+  }
 }
 
 function updatePlayerFromControls(dt) {
   // Start from zero velocity if no controls are applied
-  player.v = 0
+  player.v = 0;
 
   // Query cursor keys & WASD & gamepad d-pad
   const dleft  = (Input.keys[65] || Input.keys[37] || Input.gamepad.button13);
@@ -431,8 +689,7 @@ function updatePlayerFromControls(dt) {
     var distance = Math.sqrt(Math.pow(my - player.y, 2) + Math.pow(mx - player.x, 2));
     if (distance > 40) distance = 40;
     const speedFactor = distance / 40;
-    player.v = player.maxSpeed * speedFactor; // TODO: velocity from pointer distance?
-    //debugOut.lars_sez = Math.round(distance).toString() + " " + player.v.toString();
+    player.v = player.maxSpeed * speedFactor;
     player.r = Math.atan2(my - player.y, mx - player.x);
 
   } else if (typeof(Input.gamepad.axis0) != 'undefined' && typeof(Input.gamepad.axis1) != 'undefined') {
@@ -450,14 +707,18 @@ function updatePlayerZoom(dt) {
   if (player.v !== 0) {
     camera.zdelay = camera.zdelaymax;
     camera.z += 0.3;
-    if (camera.z > camera.zmax) { camera.z = camera.zmax; }
+    if (camera.z > camera.zmax) {
+      camera.z = camera.zmax;
+    }
   } else {
     if (camera.zdelay > 0) {
       camera.zdelay -= dt;
       return;
     }
     camera.z -= 0.2;
-    if (camera.z < camera.zmin) { camera.z = camera.zmin; }
+    if (camera.z < camera.zmin) {
+      camera.z = camera.zmin;
+    }
   }
 }
 
@@ -465,10 +726,11 @@ function updatePlayerMotion(dt) {
   let dx = 0;
   let dy = 0;
 
-  if (player.vibrating > 10)
+  if (player.vibrating > 10) {
     var [px, py] = player.vibrateBaseLocation;
-  else
+  } else {
     var [px, py] = [player.x, player.y];
+  }
 
   let tx = Math.cos(player.r) * player.v * dt + px;
   let ty = Math.sin(player.r) * player.v * dt + py;
@@ -522,6 +784,7 @@ function updatePlayerMotion(dt) {
     player.y = ty;
     return;
   }
+
   player.x = tx;
   player.y = ty;
   player.vibrating = 0;
@@ -555,6 +818,10 @@ function getPixelSumAt(x, y, pixelData) {
 
 function isPassableAt(x, y) {
   return getPixelSumAt(x, y, map.pathData) > map.passableMin;
+}
+
+function distanceFrom(x1, y1, x2, y2) {
+  return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
 }
 
 function suggestBetter(x, y) {
@@ -603,6 +870,10 @@ function suggestBetter(x, y) {
   let betterX = xAxis[middleX][0];
   let betterY = yAxis[middleY][0];
 
+  if (lowY == -1 && lowX == -1 && highX == 9 && highY == 9 && player.breadcrumb_stack.noCloser(betterX, betterY, 50, 15)) {
+     player.breadcrumb_stack.push([betterX, betterY]);
+  }
+
   return [betterX, betterY];
 }
 
@@ -612,8 +883,14 @@ function degradeHintingColor() {
   }
 }
 
+function upgradeHintingColor() {
+  if (player.color < 4094) {
+    player.color += 17;
+  }
+}
+
 function drawPlayer(dt) {
-  let inSolutionPath = getPixelAvgAt(player.x, player.y, map.solutionData) != 0;
+  let inSolutionPath = getPixelAvgAt(player.x, player.y, map.solutionData) != 0 && !player.colorOverride;
 
   if (player.colorHinting && !player.colorHintingTimer && !inSolutionPath) {
     // degrade the player color every 60 seconds with a timer
@@ -631,20 +908,58 @@ function drawPlayer(dt) {
   ctx.strokeStyle = color_str;
   ctx.fillStyle = color_str;
 
-  ctx.beginPath();
-  ctx.lineWidth = 0.5;
-  ctx.arc(player.x, player.y, 3, 0, Math.PI * 2);
-  ctx.stroke();
+  // Try coming up with a short travel history segment for a
+  // smoothed avatar rotation
+  player.x_history.unshift(player.x);
+  player.y_history.unshift(player.y);
+  if (player.x_history.length > 20) { player.x_history.pop(); }
+  if (player.y_history.length > 20) { player.y_history.pop(); }
+  const drawR = Math.atan2(
+    player.y_history[0] - player.y_history[player.y_history.length - 1],
+    player.x_history[0] - player.x_history[player.x_history.length - 1]
+  );
 
+  // Draw a little arrowhead avatar
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.rotate(drawR);
+  ctx.lineWidth = '1.5';
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.lineWidth = 2;
-  ctx.arc(player.x, player.y, 9, 0, Math.PI * 2);
+  ctx.moveTo(5, 0);
+  ctx.lineTo(-5, 5);
+  ctx.lineTo(0, 0);
+  ctx.lineTo(-5, -5);
+  ctx.lineTo(5, 0);
   ctx.stroke();
+  ctx.fill();
+  ctx.restore();
 
-  ctx.beginPath();
-  ctx.lineWidth = 4;
-  ctx.arc(player.x, player.y, 27, 0, Math.PI * 2);
-  ctx.stroke();
+  // When we're zoomed out, animate a ripple to call attention to the avatar.
+  if (camera.z < 1) {
+    player.sprite.rings.forEach(ring => {
+      if (ring.delay > 0) { return ring.delay -= dt; }
+
+      ring.t += dt;
+      if (ring.t >= ring.endT) { ring.t = 0; }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.lineWidth = 2.5;
+      ctx.globalAlpha = lerp(ring.startO, ring.endO, ring.t / ring.endT);
+      ctx.arc(player.x, player.y,
+              lerp(ring.startR, ring.endR, ring.t / ring.endT),
+              0, PI2);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+}
+
+// Linear interpolation from v0 to v1 over t[0..1]
+function lerp(v0, v1, t) {
+  return (1-t)*v0 + t*v1;
 }
 
 function initDebugGUI() {
@@ -666,26 +981,26 @@ function initDebugGUI() {
     keys.forEach(k => folder.add(obj, k).listen());
   };
 
+  const fdebug = gui.addFolder('debug');
+  fdebug.open();
+  listenAll(fdebug, debugIn);
+  listenAll(fdebug, debugOut);
+
   const ftouch = gui.addFolder('touch');
-  ftouch.open();
+  // ftouch.open();
   listenAll(ftouch, Input.touch);
 
   const fplayer = gui.addFolder('player');
   fplayer.open();
   listenAll(fplayer, player, ['x', 'y', 'r', 'v', 'color', 'colorHinting', 'vibrating']);
 
-
   const fcamera = gui.addFolder('camera');
-  fcamera.open();
+  // fcamera.open();
   listenAll(fcamera, camera, ['x', 'y', 'z', 'zdelay']);
 
   const fmouse = gui.addFolder('mouse');
-  fmouse.open();
+  // fmouse.open();
   listenAll(fmouse, Input.mouse);
-
-  const fkeys = gui.addFolder('debug');
-  fkeys.open();
-  listenAll(fkeys, debugOut);
 }
 
 function updateDebug(dt) {
