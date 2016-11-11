@@ -47,8 +47,10 @@ const greenMap = {
   pathSrc: 'mazes/Firefox.png',
   solutionSrc: 'mazes/Firefox.green.png',
   passableMin: 67,
-  startX: 499, startY: 432,
+  startX: 496, startY: 435,
+  startHeadingX: 499, startHeadingY: 431,
   endX: 3258, endY: 433,
+  endHeadingX: 3257, endHeadingY: 427,
   startArrowButt: [521, 401],
   startArrowPoint: [509, 418],
   startArrowLeftWing: [507, 411],
@@ -71,12 +73,14 @@ const redMap = {
   pathSrc: greenMap.pathSrc,
   solutionSrc: 'mazes/Firefox.red.png',
   passableMin: greenMap.passableMin,
-  startX: 487, startY: 419,
-  endX: 3228, endY: 427,
-  startArrowButt: [486, 383],
-  startArrowPoint: [487, 407],
-  startArrowLeftWing: [495, 399],
-  startArrowRightWing: [479, 400],
+  startX: 486, startY: 422,
+  startHeadingX: 487, startHeadingY: 417,
+  endX: 3229, endY: 429,
+  endHeadingX: 3225, endHeadingY: 425,
+  startArrowButt: [486, 388],
+  startArrowPoint: [487, 412],
+  startArrowLeftWing: [495, 404],
+  startArrowRightWing: [479, 405],
   endArrowButt: [3219, 419],
   endArrowPoint: [3203, 406],
   endArrowLeftWing: [3204,417],
@@ -166,6 +170,7 @@ const player = {
   x_history: [],
   y_history: [],
   r: Math.PI * (3/2),
+  forceZoomIn: false,
   r_history: [],
   v: 0,
   maxSpeed: 130 / 1000,
@@ -435,6 +440,8 @@ function drawBreadCrumbs(dt) {
 function initPlayer() {
   player.x = map.startX;
   player.y = map.startY;
+  player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
+  player.v = 0;
   player.color = 4095;
   player.sprite = {
    rings: [
@@ -479,28 +486,30 @@ function updatePlayerFromScript(dt) {
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 2000);
 
   } else if (animationState == 1) {
-    player.v = 10;
+    player.forceZoomIn = true;
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
   } else if (animationState == 2) {
-    player.v = 0;
+    player.forceZoomIn = false;
 
   } else if (animationState == 3) {
-    player.v = 10; // force zoom in
+    player.r = Math.atan2(map.endHeadingY - map.endY, map.endHeadingX - map.endX);
+    player.forceZoomIn = true;
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
   } else if (animationState == 4) {
-    player.v = 10; // force zoom in
+    player.forceZoomIn = true;
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
   } else if (animationState == 5) {
-    player.v = 0;
+    player.forceZoomIn = false;
 
   } else if (animationState == 6) {
-    player.v = 10; // force zoom in
+    player.forceZoomIn = true;
+    player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
     if (!openAnimation.animationTimer) {
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 4000);
       player.colorOverride = true;
@@ -513,12 +522,12 @@ function updatePlayerFromScript(dt) {
       player.colorHintingTimer = false;
       player.colorOverride = false;
     }
-    player.v = 10; // force zoom in
+    player.forceZoomIn = true;
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
   } else if (animationState == 8) {
-    player.v = 10; // force zoom in
+    player.forceZoomIn = true;
     if (!openAnimation.animationTimer) {
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 2000);
       player.colorOverride = true;
@@ -526,6 +535,7 @@ function updatePlayerFromScript(dt) {
     }
 
   } else if (animationState == 9) {
+    player.forceZoomIn = false;
     if (player.colorHintingTimer) {
       window.clearInterval(player.colorHintingTimer);
       player.colorHintingTimer = false;
@@ -704,7 +714,7 @@ function updatePlayerFromControls(dt) {
 }
 
 function updatePlayerZoom(dt) {
-  if (player.v !== 0) {
+  if (player.v !== 0 || player.forceZoomIn) {
     camera.zdelay = camera.zdelaymax;
     camera.z += 0.3;
     if (camera.z > camera.zmax) {
@@ -890,13 +900,13 @@ function upgradeHintingColor() {
 }
 
 function drawPlayer(dt) {
-  let inSolutionPath = getPixelAvgAt(player.x, player.y, map.solutionData) != 0 && !player.colorOverride;
+  let inSolutionPath = getPixelAvgAt(player.x, player.y, map.solutionData) != 0;
 
-  if (player.colorHinting && !player.colorHintingTimer && !inSolutionPath) {
+  if (player.colorHinting && !player.colorHintingTimer && !inSolutionPath && !player.colorOverride) {
     // degrade the player color every 60 seconds with a timer
     player.colorHintingTimer = window.setInterval(degradeHintingColor, 20000);
   }
-  if (player.colorHintingTimer && inSolutionPath) {
+  if (player.colorHintingTimer && inSolutionPath && !player.colorOverride) {
     // the player has moved back onto a solution path
     // kill the timer and restore the color
     window.clearInterval(player.colorHintingTimer);
@@ -908,16 +918,29 @@ function drawPlayer(dt) {
   ctx.strokeStyle = color_str;
   ctx.fillStyle = color_str;
 
-  // Try coming up with a short travel history segment for a
-  // smoothed avatar rotation
-  player.x_history.unshift(player.x);
-  player.y_history.unshift(player.y);
-  if (player.x_history.length > 20) { player.x_history.pop(); }
-  if (player.y_history.length > 20) { player.y_history.pop(); }
-  const drawR = Math.atan2(
-    player.y_history[0] - player.y_history[player.y_history.length - 1],
-    player.x_history[0] - player.x_history[player.x_history.length - 1]
-  );
+  var drawR = player.r;
+
+  if (player.v != 0) {
+    // Try coming up with a short travel history segment for a
+    // smoothed avatar rotation
+    player.x_history.unshift(player.x);
+    player.y_history.unshift(player.y);
+    if (player.x_history.length > 20) {
+      player.x_history.pop();
+    }
+    if (player.y_history.length > 20) {
+      player.y_history.pop();
+    }
+    drawR = Math.atan2(
+      player.y_history[0] - player.y_history[player.y_history.length - 1],
+      player.x_history[0] - player.x_history[player.x_history.length - 1]
+    );
+  } else if (player.x_history.length) {
+    // if the player is not moving, the history is irrelevant
+    player.x_history.pop();
+    player.y_history.pop();
+  }
+
 
   // Draw a little arrowhead avatar
   ctx.save();
