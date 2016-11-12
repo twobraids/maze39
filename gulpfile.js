@@ -110,7 +110,7 @@ gulp.task('self-watch', () => gulp.watch('gulpfile.js', process.exit));
 gulp.task('server', () => connect.server({
   root: 'dist',
   livereload: true,
-  host: '0.0.0.0',
+  host: 'localhost',
   port: '9000'
 }));
 
