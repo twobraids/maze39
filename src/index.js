@@ -129,7 +129,7 @@ const gamePlay = {
 }
 
 const openAnimation = {
-  animationState: -2,
+  animationState: 0,
   animationTimer: false,
 
   init: init,
@@ -488,52 +488,52 @@ function abortIntro() {
       window.clearInterval(openAnimation.animationTimer);
       openAnimation.animationTimer = false;
     }
-    openAnimation.animationState = 8;
+    openAnimation.animationState = 10;
   }
 }
 
 function updatePlayerFromScript(dt) {
   let animationState = openAnimation.animationState;
   abortIntro();
-  if (openAnimation.animationState == -2) {
+  if (openAnimation.animationState == 0) {
     player.forceZoomIn = true;
     player.x = 7000;
     player.y = 5000;
     if (!openAnimation.animationTimer) {
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 5000);
     }
-  } else if (animationState == -1) {
+  } else if (animationState == 1) {
     player.forceZoomIn = false;
 
-  } else if (animationState == 0) {
+  } else if (animationState == 2) {
     player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
     player.forceZoomIn = true;
     if (!openAnimation.animationTimer)
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 2000);
-
-  } else if (animationState == 1) {
-    player.forceZoomIn = true;
-    if (!openAnimation.animationTimer)
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
-
-  } else if (animationState == 2) {
-    player.forceZoomIn = false;
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 1e000);
 
   } else if (animationState == 3) {
-    player.r = Math.atan2(map.endHeadingY - map.endY, map.endHeadingX - map.endX);
     player.forceZoomIn = true;
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
   } else if (animationState == 4) {
+    player.forceZoomIn = false;
+
+  } else if (animationState == 5) {
+    player.r = Math.atan2(map.endHeadingY - map.endY, map.endHeadingX - map.endX);
     player.forceZoomIn = true;
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
-  } else if (animationState == 5) {
+  } else if (animationState == 6) {
+    player.forceZoomIn = true;
+    if (!openAnimation.animationTimer)
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+
+  } else if (animationState == 7) {
     player.forceZoomIn = false;
 
-  } else if (animationState == 6) {
+  } else if (animationState == 8) {
     player.forceZoomIn = true;
     player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
     if (!openAnimation.animationTimer) {
@@ -542,7 +542,7 @@ function updatePlayerFromScript(dt) {
       player.colorHintingTimer = window.setInterval(degradeHintingColor, 200);
     }
 
-  } else if (animationState == 7) {
+  } else if (animationState == 9) {
     if (player.colorHintingTimer) {
       window.clearInterval(player.colorHintingTimer);
       player.colorHintingTimer = false;
@@ -552,7 +552,7 @@ function updatePlayerFromScript(dt) {
     if (!openAnimation.animationTimer)
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
 
-  } else if (animationState == 8) {
+  } else if (animationState == 10) {
     player.x = map.startX;
     player.y = map.startY;
     player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
@@ -563,7 +563,7 @@ function updatePlayerFromScript(dt) {
       player.colorHintingTimer = window.setInterval(upgradeHintingColor, 150);
     }
 
-  } else if (animationState == 9) {
+  } else if (animationState == 11) {
     player.forceZoomIn = false;
     if (player.colorHintingTimer) {
       window.clearInterval(player.colorHintingTimer);
@@ -578,7 +578,7 @@ function updatePlayerFromScript(dt) {
 
 function updatePlayerMotionFromScript(dt) {
   let animationState = openAnimation.animationState;
-  if (animationState == -1) {
+  if (animationState == 1) {
     let distanceFromStart = distanceFrom(player.x, player.y, map.startX, map.startY);
     player.r = Math.atan2(map.startY - player.y, (map.startX + distanceFromStart / 2.0) - player.x);
     player.v = 0;
@@ -593,7 +593,7 @@ function updatePlayerMotionFromScript(dt) {
     player.x = tx;
     player.y = ty;
 
-  } if (animationState == 2) {
+  } if (animationState == 4) {
     let distanceFromEnd = distanceFrom(player.x, player.y, map.endX, map.endY);
     player.r = Math.atan2((map.endY + distanceFromEnd / 2.0) - player.y, (map.endX) - player.x);
     player.v = 0;
@@ -608,7 +608,7 @@ function updatePlayerMotionFromScript(dt) {
     player.x = tx;
     player.y = ty;
 
-  } if (animationState == 5) {
+  } if (animationState == 7) {
     let distanceFromStart = distanceFrom(player.x, player.y, map.startX, map.startY);
     player.r = Math.atan2(map.startY + distanceFromStart / 2.0 - player.y, map.startX - player.x);
     player.v = 0;
@@ -627,7 +627,7 @@ function updatePlayerMotionFromScript(dt) {
 
 function drawMessages(dt) {
   let animationState = openAnimation.animationState;
-  if (animationState == -2) {
+  if (animationState == 0) {
     ctx.save();
     ctx.strokeStyle = '#0bf';
     ctx.fillStyle = '#0bf';
@@ -639,7 +639,7 @@ function drawMessages(dt) {
     ctx.fillText("by   Les Orchard   &   K Lars Lohn", player.x, player.y + 20);
     ctx.fillText("Art by K Lars Lohn", player.x, player.y + 35);
     ctx.restore();
-  } else if (animationState == 1) {
+  } else if (animationState == 3) {
     ctx.save();
     ctx.strokeStyle = '#0f0';
     ctx.fillStyle = '#0f0';
@@ -648,7 +648,7 @@ function drawMessages(dt) {
     ctx.fillText("You're going to start here...", map.startX, map.startY - 42);
     ctx.restore();
 
-  } else if (animationState == 3) {
+  } else if (animationState == 5) {
     ctx.save();
     ctx.strokeStyle = '#0f0';
     ctx.fillStyle = '#0f0';
@@ -657,7 +657,7 @@ function drawMessages(dt) {
     ctx.fillText("The goal is to exit here.",  map.endX, map.endY - 52);
     ctx.restore();
 
-  } else if (animationState == 4) {
+  } else if (animationState == 6) {
     ctx.save();
     ctx.strokeStyle = '#ff0';
     ctx.fillStyle = '#ff0';
@@ -666,7 +666,7 @@ function drawMessages(dt) {
     ctx.fillText("You've only got an hour.", map.endX, map.endY - 52);
     ctx.restore();
 
-  } else if (animationState == 6) {
+  } else if (animationState == 8) {
     ctx.save();
     ctx.strokeStyle = '#f00';
     ctx.fillStyle = '#f00';
@@ -676,7 +676,7 @@ function drawMessages(dt) {
     ctx.fillText("red, you're on the wrong path", map.startX, map.startY - 42);
     ctx.restore();
 
-  } else if (animationState == 7) {
+  } else if (animationState == 9) {
     ctx.save();
     ctx.strokeStyle = '#ff0';
     ctx.fillStyle = '#ff0';
@@ -686,7 +686,7 @@ function drawMessages(dt) {
     ctx.fillText("to a numbered breadcrumb", map.startX, map.startY - 42);
     ctx.restore();
 
-  } else if (animationState == 8) {
+  } else if (animationState == 10) {
     ctx.save();
     ctx.strokeStyle = '#0f0';
     ctx.fillStyle = '#0f0';
