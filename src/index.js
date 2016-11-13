@@ -107,6 +107,7 @@ const gamePlay = {
     if (DEBUG) { statsUpdate.begin(); }
     //camera = gameCameraNoAutoZoom;
     getCurrentCommands(dt, player, camera);
+    actOnCurrentCommands(dt, player, camera);
     updatePlayerZoom(dt);
     updatePlayerMotion(dt);
     updateDebug();
@@ -137,6 +138,7 @@ const openAnimation = {
   update(dt) {
     if (DEBUG) { statsUpdate.begin(); }
     camera = animationCamera;
+    getCurrentCommands(dt, player, camera);
     updatePlayerFromScript(dt);
     updatePlayerZoom(dt);
     updatePlayerMotionFromScript(dt);
@@ -440,6 +442,11 @@ function drawBreadCrumbs(dt) {
 }
 
 function initPlayer() {
+  if (player.colorHintingTimer) {
+    window.clearInterval(player.colorHintingTimer);
+    player.colorHintingTimer = false;
+    player.colorOverride = false;
+  }
   player.x = map.startX;
   player.y = map.startY;
   player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
@@ -474,12 +481,12 @@ function hasKeys(aMapping) {
 }
 
 function abortIntro() {
-  if (hasKeys(Input.keys) || hasKeys(Input.gamepad) || Input.touch.active) {
+  if (playerWantsAttention()) {
     if (openAnimation.animationTimer) {
       window.clearInterval(openAnimation.animationTimer);
       openAnimation.animationTimer = false;
     }
-    openAnimation.animationState = 10;
+    openAnimation.animationState = 11;
   }
 }
 
@@ -869,6 +876,9 @@ function suggestBetter(x, y) {
 function degradeHintingColor() {
   if (player.color > 3840) {
     player.color -= 17;
+  } else {
+    window.clearInterval(player.colorHintingTimer);
+    player.colorHintingTimer = false;
   }
 }
 
@@ -885,10 +895,10 @@ function drawPlayer(dt) {
     // degrade the player color every 60 seconds with a timer
     player.colorHintingTimer = window.setInterval(degradeHintingColor, 20000);
   }
-  if (player.colorHintingTimer && inSolutionPath && !player.colorOverride) {
+  if (inSolutionPath && !player.colorOverride) {
     // the player has moved back onto a solution path
     // kill the timer and restore the color
-    window.clearInterval(player.colorHintingTimer);
+    if (player.colorHintingTimer) window.clearInterval(player.colorHintingTimer);
     player.colorHintingTimer = false;
     player.color = 4095;
   }
@@ -973,12 +983,10 @@ const directions = {
   dr: Math.PI * (1/4)
 };
 
-
-
 // Commands to implement
 // ATTENTION  -- continuous
 // MOVE direction, speed-factor  -- continuous
-// BACKUP [breadcrumb-number]  -- single
+// BACKUP -- single
 // ZOOM up-down-int -- continuous
 // AUTOZOOM on-off -- single
 // SAVE  -- single
@@ -1291,8 +1299,15 @@ function getCurrentCommands(dt, player, currentCamera) {
   Commands.zoom = false;
 
   Input.update(dt);
-  InputCommandFunctions.forEach(e =>  e(dt, player.x, player.y, currentCamera));
+  InputCommandFunctions.forEach(e => e(dt, player.x, player.y, currentCamera));
   InputCommands.forEach(e => mergeCommands(e, Commands));
+}
+
+function playerWantsAttention() {
+  return Commands.attention;
+}
+
+function actOnCurrentCommands(dt, player, currentCamera) {
   if (Commands.moveSpeedFactor) {
     player.v = player.maxSpeed * Commands.moveSpeedFactor;
     player.r = Commands.moveDirection;
@@ -1324,11 +1339,7 @@ function getCurrentCommands(dt, player, currentCamera) {
     camera = (camera == gameCameraNoAutoZoom) ? gameCameraWithAutoZoom : gameCameraNoAutoZoom;
     currentCamera = camera;
   }
-
 }
-
-
-
 
 
 // Linear interpolation from v0 to v1 over t[0..1]
