@@ -103,9 +103,8 @@ const gamePlay = {
 
   update(dt) {
     if (DEBUG) { statsUpdate.begin(); }
-    camera = gameCamera;
-    Input.update(dt);
-    updatePlayerFromControls(dt);
+    camera = gameCameraNoZoomOut;
+    getCurrentCommands(dt, player, camera);
     updatePlayerZoom(dt);
     updatePlayerMotion(dt);
     updateDebug();
@@ -136,7 +135,6 @@ const openAnimation = {
   update(dt) {
     if (DEBUG) { statsUpdate.begin(); }
     camera = animationCamera;
-    Input.update(dt);
     updatePlayerFromScript(dt);
     updatePlayerZoom(dt);
     updatePlayerMotionFromScript(dt);
@@ -161,8 +159,9 @@ const openAnimation = {
 var gameState = openAnimation;
 
 
-const gameCamera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
-const animationCamera = { x: 0, y: 0, z: 0.75, zmin: 0.25, zmax: 5, zdelay: 0, zdelaymax: 500 };
+var gameCameraNoZoomOut = { x: 0, y: 0, z: 1.0, zmin: 1.0, zmax: 1.0, zdelay: 0, zdelaymax: 500, auto_zoom: false };
+var gameCamera = { x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500, auto_zoom: false };
+var animationCamera = { x: 0, y: 0, z: 0.75, zmin: 0.25, zmax: 5, zdelay: 0, zdelaymax: 500, auto_zoom: true };
 var camera = animationCamera;
 const player = {
   x: 0,
@@ -452,17 +451,6 @@ function initPlayer() {
   };
 }
 
-const directions = {
-  r: 0,
-  ur: Math.PI * (7/4),
-  u: Math.PI * (3/2),
-  ul: Math.PI * (5/4),
-  l: Math.PI,
-  dl: Math.PI * (3/4),
-  d: Math.PI * (1/2),
-  dr: Math.PI * (1/4)
-};
-
 const slideAngles = [
   0,
   /*Math.PI * 1/6, -Math.PI * 1/6,
@@ -571,7 +559,7 @@ function updatePlayerFromScript(dt) {
       player.colorOverride = false;
     }
     initPlayer();
-    camera = gameCamera;
+    camera = gameCameraNoZoomOut;
     gameState = gamePlay
   }
 }
@@ -698,78 +686,14 @@ function drawMessages(dt) {
   }
 }
 
-function updatePlayerFromControls(dt) {
-  // Start from zero velocity if no controls are applied
-  player.v = 0;
-
-  // Query cursor keys & WASD & gamepad d-pad
-  const dleft  = (Input.keys[65] || Input.keys[37] || Input.gamepad.button13);
-  const dright = (Input.keys[68] || Input.keys[39] || Input.gamepad.button14);
-  const dup    = (Input.keys[87] || Input.keys[38] || Input.gamepad.button11);
-  const ddown  = (Input.keys[83] || Input.keys[40] || Input.gamepad.button12);
-  const dir = (dup ? 'u' : (ddown ? 'd' : '')) +
-              (dleft ? 'l' : (dright ? 'r' : ''));
-  // the '.' key drops a numbered breadcrumb
-  const drop_breadcrumb = Input.keys[190] || false;
-  // the '<backspace>' key jumps the player to the most recent breadcrumb
-  const jump_to_breadcrumb = Input.keys[8] || Input.keys[46] || false;
-  const color_hinting = Input.keys[67] || false;
-
-
-  if (drop_breadcrumb) {
-    delete Input.keys[190]; // ensure keystroke happens only once
-    player.breadcrumb_stack.push([player.x, player.y]);
-
-  } else if (jump_to_breadcrumb) {
-    delete Input.keys[8]; // ensure keystroke happens only once
-    delete Input.keys[46]; // ensure keystroke happens only once
-    if (player.breadcrumb_stack.stack.length > 0) {
-      player.used_paths.push(player.current_path);
-      [player.x, player.y] = player.breadcrumb_stack.pop();
-      player.current_path = [[player.x, player.y]];
-    }
-
-  } else if (color_hinting) {
-    delete Input.keys[67]; // ensure keystroke happens only once
-    player.colorHinting = ! player.colorHinting;
-
-  } else if (dir) {
-    // Cursor keys or gamepad d-pad input
-    player.v = player.maxSpeed;
-    player.r = directions[dir];
-
-  } else if (Input.touch.active) {
-    // Chase touch when active
-    const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (Input.touch.x / camera.z);
-    const my = player.y - (ctx.canvas.height / 2 / camera.z) + (Input.touch.y / camera.z);
-    var distance = Math.sqrt(Math.pow(my - player.y, 2) + Math.pow(mx - player.x, 2));
-    if (distance > 100) distance = 100;
-    const speedFactor = distance / 100;
-    player.v = player.maxSpeed * speedFactor; // TODO: velocity from pointer distance?
-    player.r = Math.atan2(my - player.y, mx - player.x)
-
-  } else if (Input.mouse.down || Input.keys[32]) {
-    // Chase mouse on button down or spacebar
-    const mx = player.x - (ctx.canvas.width / 2 / camera.z) + (Input.mouse.x / camera.z);
-    const my = player.y - (ctx.canvas.height / 2 / camera.z) + (Input.mouse.y / camera.z);
-    var distance = Math.sqrt(Math.pow(my - player.y, 2) + Math.pow(mx - player.x, 2));
-    if (distance > 40) distance = 40;
-    const speedFactor = distance / 40;
-    player.v = player.maxSpeed * speedFactor;
-    player.r = Math.atan2(my - player.y, mx - player.x);
-
-  } else if (typeof(Input.gamepad.axis0) != 'undefined' && typeof(Input.gamepad.axis1) != 'undefined') {
-    // Gamepad analog stick for rotation & velocity
-    const jx = Math.abs(Input.gamepad.axis0) > 0.2 ? Input.gamepad.axis0 : 0;
-    const jy = Math.abs(Input.gamepad.axis1) > 0.2 ? Input.gamepad.axis1 : 0;
-    if (Math.abs(jx) > 0 || Math.abs(jy) > 0) {
-      player.v = player.maxSpeed; // TODO: velocity from stick intensity?
-      player.r = Math.atan2(Input.gamepad.axis1, Input.gamepad.axis0)
-    }
-  }
-}
 
 function updatePlayerZoom(dt) {
+  let zoomInDelta = 0;
+  let zoomOutDelta = 0;
+  if (camera.auto_zoom) {
+    zoomInDelta = 0.3;
+    zoomOutDelta = 0.2;
+  }
   if (player.v !== 0 || player.forceZoomIn) {
     camera.zdelay = camera.zdelaymax;
     camera.z += 0.3;
@@ -1035,6 +959,324 @@ function drawPlayer(dt) {
     });
   }
 }
+
+
+const directions = {
+  r: 0,
+  ur: Math.PI * (7/4),
+  u: Math.PI * (3/2),
+  ul: Math.PI * (5/4),
+  l: Math.PI,
+  dl: Math.PI * (3/4),
+  d: Math.PI * (1/2),
+  dr: Math.PI * (1/4)
+};
+
+
+
+// Commands to implement
+// ATTENTION  -- continuous
+// MOVE direction, speed-factor  -- continuous
+// BACKUP [breadcrumb-number]  -- single
+// ZOOM up-down-int -- continuous
+// AUTOZOOM on-off -- single
+// SAVE  -- single
+// QUIT  -- single
+
+// input sources
+// KEYBOARD
+// MOUSE
+// GAME-CONTROLLER
+// TOUCH
+// MOTION
+
+
+/*
+Each method of fetching data from the user has its own section below.  They are considered
+indepentently in turn.  Each section interprets its input type and translates into commands.
+Once each has completed the task. the commands are merged into one command object and those
+are executed.
+*/
+
+// Keyboard Section
+
+const KeyboardCommands = {
+  name: 'keyboard',
+  attention: false,
+  moveDirection: 0,
+  moveSpeedFactor: 0,
+  backup: false,
+  zoom: false,
+  auto_zoom: false,
+  save: false,
+  quit: false,
+};
+
+function createKeyBoardCommands (dt, playerX, playerY, camera) {
+  //KeyboardCommands.attention = false;
+  KeyboardCommands.moveDirection = false;
+  KeyboardCommands.moveSpeedFactor = false;
+  KeyboardCommands.backup = false;
+  KeyboardCommands.save = false;
+
+  // Query cursor keys & WASD
+  const dleft  = (Input.keys[65] || Input.keys[37]);
+  const dright = (Input.keys[68] || Input.keys[39]);
+  const dup    = (Input.keys[87] || Input.keys[38]);
+  const ddown  = (Input.keys[83] || Input.keys[40]);
+  const dir = (dup ? 'u' : (ddown ? 'd' : '')) +
+    (dleft ? 'l' : (dright ? 'r' : ''));
+
+  if (dir) {
+    KeyboardCommands.moveDirection = directions[dir];
+    KeyboardCommands.moveSpeedFactor = 1;
+    KeyboardCommands.attention = true;
+  } else {
+    KeyboardCommands.moveDirection = false;
+    KeyboardCommands.moveSpeedFactor = 0;
+  }
+
+  if (Input.keys[8]) {
+    KeyboardCommands.attention = true;
+    KeyboardCommands.backup = true;
+    delete Input.keys[8]
+  }
+  if (Input.keys[46]) {
+    KeyboardCommands.attention = true;
+    KeyboardCommands.backup = true;
+    delete Input.keys[46]}
+
+  // TODO: keyboard command for zoom
+  // TODO: keyboard command for autozoom
+  // TODO: keyboard command for save
+  // TODO: keyboard command for quit
+
+}
+
+// Mouse section
+
+const MouseCommands = {
+  name: 'mouse',
+  attention: false,
+  moveDirection: 0,
+  moveSpeedFactor: 0,
+  backup: false,
+  zoom: false,
+  auto_zoom: false,
+  save: false,
+  quit: false,
+};
+
+function createMouseCommands (dt, playerX, playerY, camera) {
+  MouseCommands.attention = false;
+  if (Input.mouse.down) {
+    const mx = playerX - (ctx.canvas.width / 2 / camera.z) + (Input.mouse.x / camera.z);
+    const my = playerY - (ctx.canvas.height / 2 / camera.z) + (Input.mouse.y / camera.z);
+    let distance = distanceFrom(playerX, playerY, mx, my);
+    if (distance > 40) distance = 40;
+    MouseCommands.moveSpeedFactor = distance / 40;
+    MouseCommands.moveDirection = Math.atan2(my - playerY, mx - playerX);
+    MouseCommands.attention = true;
+  } else {
+    MouseCommands.moveSpeedFactor = false;
+    MouseCommands.moveDirection = false;
+  }
+
+  // TODO: mouse command for zoom
+  // TODO: mouse command for autozoom
+  // TODO: mouse command for save
+  // TODO: mouse command for quit
+
+}
+
+// game controller section
+
+const GameControllerCommands = {
+  name: 'game-controller',
+  attention: false,
+  moveDirection: 0,
+  moveSpeedFactor: 0,
+  backup: false,
+  zoom: false,
+  auto_zoom: false,
+  save: false,
+  quit: false,
+};
+
+function createGameControllerCommands (dt, playerX, playerY, camera) {
+  GameControllerCommands.attention = false;
+  const dleft = Input.gamepad.button13;
+  const dright = Input.gamepad.button14;
+  const dup = Input.gamepad.button11;
+  const ddown = Input.gamepad.button12;
+  const dir = (dup ? 'u' : (ddown ? 'd' : '')) +
+    (dleft ? 'l' : (dright ? 'r' : ''));
+  if (dir) {
+    GameControllerCommands.moveDirection = directions[dir];
+    GameControllerCommands.moveSpeedFactor = 1;
+    GameControllerCommands.attention = true;
+  } else {
+    GameControllerCommands.moveDirection = false;
+    GameControllerCommands.moveSpeedFactor = 0;
+  }
+  if (typeof(Input.gamepad.axis0) != 'undefined' && typeof(Input.gamepad.axis1) != 'undefined') {
+    // Gamepad analog stick for rotation & velocity
+    const jx = Math.abs(Input.gamepad.axis0) > 0.2 ? Input.gamepad.axis0 : 0;
+    const jy = Math.abs(Input.gamepad.axis1) > 0.2 ? Input.gamepad.axis1 : 0;
+    if (Math.abs(jx) > 0 || Math.abs(jy) > 0) {
+      GameControllerCommands.attention = true;
+      GameControllerCommands.moveSpeedFactor = 1; // TODO: velocity from stick intensity?
+      GameControllerCommands.moveDirection = Math.atan2(Input.gamepad.axis1, Input.gamepad.axis0);
+    }
+  }
+  // TODO: game controller command for backup
+  // TODO: game controller command for zoom
+  // TODO: game controller command for autozoom
+  // TODO: game controller command for save
+  // TODO: game controller command for quit
+}
+
+
+// touch section
+
+const TouchCommands = {
+  name: 'touch',
+  attention: false,
+  moveDirection: 0,
+  moveSpeedFactor: 0,
+  backup: false,
+  zoom: false,
+  auto_zoom: false,
+  save: false,
+  quit: false,
+};
+
+function createTouchCommands (dt, playerX, playerY, camera) {
+  TouchCommands.attention = false;
+  TouchCommands.moveSpeedFactor = false;
+  TouchCommands.moveDirection = false;
+  TouchCommands.backup = false;
+  TouchCommands.zoom = false;
+  let timestamp = Date.now();
+  let touches = Object.keys(Input.touchEventTracker);
+  if (touches.length == 1) {
+    const mx = playerX - (ctx.canvas.width / 2 / camera.z) + (Input.touchEventTracker[touches[0]].x / camera.z);
+    const my = playerY - (ctx.canvas.height / 2 / camera.z) + (Input.touchEventTracker[touches[0]].y / camera.z);
+    let distance = distanceFrom(playerX, playerY, mx, my);
+    if (distance > 40) distance = 40;
+    TouchCommands.attention = true;
+    TouchCommands.moveSpeedFactor = distance / 40;
+    TouchCommands.moveDirection = Math.atan2(my - playerY, mx - playerX);
+  } else if (touches.length == 2) {
+    TouchCommands.attention = true;
+    let first = Input.touchEventTracker[touches[0]];
+    let second = Input.touchEventTracker[touches[1]];
+    let changeInDistanceFromStart = Math.abs(distanceFrom(first.x, first.y, second.x, second.y) - distanceFrom(first.xStart, first.yStart, second.xStart, second.yStart));
+    if (changeInDistanceFromStart > 10)
+      TouchCommands.zoom = changeInDistanceFromStart;
+    if (first.ended || second.ended)
+      if (timestamp - first.timestamp < 1000) {
+        TouchCommands.backup = true;
+      }
+  }
+  // kill the ended touch trackers
+  let n = 0;
+  for (let i = 0; i < touches.length; i++) {
+    if (Input.touchEventTracker[touches[i]].ended) {
+      delete Input.touchEventTracker[touches[i]];
+    }
+  }
+}
+
+// movement / gyroscope / shake section
+
+const MovementCommands = {
+  name: 'movement',
+  attention: false,
+  moveDirection: false,
+  moveSpeedFactor: false,
+  backup: false,
+  zoom: false,
+  auto_zoom: false,
+  save: false,
+  quit: false,
+};
+
+function createMovementCommands (dt, playerX, playerY, camera) {
+  // TODO: movement command for moving
+  // TODO: movement command for backup
+  // TODO: movement command for zoom
+  // TODO: movement command for autozoom
+  // TODO: movement command for save
+  // TODO: movement command for quit
+
+}
+
+
+// consolidate commands section
+
+function mergeCommands(candidate, target) {
+  if (candidate.attention) {
+    target.attention = candidate.attention ? candidate.attention : target.attention;
+    target.moveDirection = candidate.moveDirection ? candidate.moveDirection : target.moveDirection;
+    target.moveSpeedFactor = candidate.moveSpeedFactor ? candidate.moveSpeedFactor : target.moveSpeedFactor;
+    target.backup = candidate.backup ? candidate.backup : target.backup;
+    target.save = candidate.save ? candidate.save : target.save;
+    target.quit = candidate.quit ? candidate.quit : target.quit;
+  }
+}
+
+const InputCommandFunctions = [ createKeyBoardCommands,  createMouseCommands, createGameControllerCommands, createTouchCommands, createMovementCommands ];
+const InputCommands = [ KeyboardCommands , MouseCommands , GameControllerCommands, TouchCommands, MovementCommands  ];
+
+var Commands = {
+  attention: false,
+  moveDirection: false,
+  moveSpeedFactor: false,
+  backup: false,
+  zoom: false,
+  auto_zoom: false,
+  save: false,
+  quit: false,
+};
+
+function getCurrentCommands(dt, player, camera) {
+
+  Commands.attention = false;
+  Commands.moveDirection = false;
+  Commands.moveSpeedFactor = false;
+  Commands.backup = false;
+  Commands.zoom = false;
+
+  Input.update(dt);
+  InputCommandFunctions.forEach(e =>  e(dt, player.x, player.y, camera));
+  InputCommands.forEach(e => mergeCommands(e, Commands));
+  if (Commands.moveSpeedFactor) {
+    player.v = player.maxSpeed * Commands.moveSpeedFactor;
+    player.r = Commands.moveDirection;
+  } else {
+    player.v = 0;
+  }
+  if (Commands.backup) {
+    if (player.breadcrumb_stack.stack.length > 0) {
+      player.used_paths.push(player.current_path);
+      [player.x, player.y] = player.breadcrumb_stack.pop();
+      player.current_path = [[player.x, player.y]];
+    }
+  }
+  if (Commands.zoom) {
+    if (camera.referenceZ == null)  // == false because must disambiguate from case 0
+      camera.ReferenceZ = camera.z;
+    camera.z = camera.referenceZ * (1 + Commands.zoom / 100);
+  } else {
+    delete camera.referenceZ;
+  }
+
+}
+
+
+
+
 
 // Linear interpolation from v0 to v1 over t[0..1]
 function lerp(v0, v1, t) {
