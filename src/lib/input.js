@@ -5,6 +5,8 @@
   mouse: { x: 0, y: 0, down: false },
   touch: { active: false, x: 0, y: 0 },
 
+  lars_sez: '',
+
   init() {
     const windowEvents = {
       mousemove: this.handleMouseMove,
@@ -22,6 +24,8 @@
 
   handleKeyDown(ev) {
     this.keys[ev.keyCode] = true;
+    console.log(ev.keyCode);
+
     ev.preventDefault();
   },
 
@@ -104,6 +108,7 @@
     for (var i = 0; i < gamepads.length; i++) {
     	var gp = gamepads[i];
     	if (!gp || !gp.connected) continue;
+      //gp.buttons.forEach((val, idx) => val.pressed ? console.log(`button${idx}` + val.pressed.toString()) : '');
       gp.buttons.forEach((val, idx) => this.gamepad[`button${idx}`] = val.pressed);
       gp.axes.forEach((val, idx) => this.gamepad[`axis${idx}`] = val);
       break; // stop after the first gamepad
