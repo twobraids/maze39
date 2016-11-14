@@ -12,6 +12,7 @@
       mousemove: this.handleMouseMove,
       mousedown: this.handleMouseDown,
       mouseup: this.handleMouseUp,
+      //wheel: this.handleWheel,
       keydown: this.handleKeyDown,
       keyup: this.handleKeyUp,
       touchstart: this.handleTouchStart,
@@ -24,8 +25,7 @@
 
   handleKeyDown(ev) {
     this.keys[ev.keyCode] = true;
-    console.log(ev.keyCode);
-
+    console.log(ev.keyCode.toString());
     ev.preventDefault();
   },
 

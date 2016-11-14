@@ -1003,7 +1003,7 @@ const directions = {
 /*
 Each method of fetching data from the user has its own section below.  They are considered
 indepentently in turn.  Each section interprets its input type and translates into commands.
-Once each has completed the task. the commands are merged into one command object and those
+Once each has completed the task, the commands are merged into one command object and those
 are executed.
 */
 
@@ -1046,22 +1046,35 @@ function createKeyboardCommands (dt, playerX, playerY, camera) {
     KeyboardCommands.moveSpeedFactor = false;
   }
 
-  if (Input.keys[8]) {
+  if (Input.keys[8]) {  // backspace for backup
     KeyboardCommands.attention = true;
     KeyboardCommands.backup = true;
     delete Input.keys[8]
   }
-  if (Input.keys[46]) {
+  if (Input.keys[46]) { // also for backup
     KeyboardCommands.attention = true;
     KeyboardCommands.backup = true;
     delete Input.keys[46]}
 
-  if (Input.keys[90]) {  // Z key
+  if (Input.keys[90]) {  // Z key for Auto-zoom toggling
     KeyboardCommands.attention = true;
     KeyboardCommands.auto_zoom = true;
-    delete Input.keys[90]}
+    delete Input.keys[90]
+  }
 
-  // TODO: keyboard command for zoom
+  if (Input.keys[61]) {  // =/+ for zoom in
+    KeyboardCommands.attention = true;
+    KeyboardCommands.zoom = 0.1;
+    delete Input.keys[61]
+  }
+
+  if (Input.keys[173]) {  // - for zoom out
+    KeyboardCommands.attention = true;
+    KeyboardCommands.zoom = -0.1;
+    delete Input.keys[173]
+  }
+
+
   // TODO: keyboard command for save
   // TODO: keyboard command for quit
 
@@ -1123,6 +1136,7 @@ function createGameControllerCommands (dt, playerX, playerY, camera) {
   GameControllerCommands.moveSpeedFactor = false;
   GameControllerCommands.moveDirection = false;
   GameControllerCommands.backup = false;
+  GameControllerCommands.zoom = false;
   GameControllerCommands.auto_zoom = false;
 
   if (Object.keys(Input.gamepad).length) GameControllerCommands.attention = true;
@@ -1154,12 +1168,27 @@ function createGameControllerCommands (dt, playerX, playerY, camera) {
       Input.gamepad.auto_zoom = true;
       GameControllerCommands.auto_zoom = true;
     }
-
   } else if (typeof Input.gamepad.auto_zoom != "undefined")
     delete Input.gamepad.auto_zoom;
 
+  if (Input.gamepad.button0) {  // green button 0 for zoom in
+    if (typeof Input.gamepad.zoom == "undefined") {
+      Input.gamepad.zoom = true;
+      GameControllerCommands.zoom = 0.1;
+    }
+  } else if (typeof Input.gamepad.zoom != "undefined")
+    delete Input.gamepad.zoom;
 
-    if (typeof(Input.gamepad.axis0) != 'undefined' && typeof(Input.gamepad.axis1) != 'undefined') {
+  if (Input.gamepad.button1) {  // red button 1 for zoom in
+    if (typeof Input.gamepad.zoom == "undefined") {
+      Input.gamepad.zoom = true;
+      GameControllerCommands.zoom = -0.1;
+    }
+  } else if (typeof Input.gamepad.zoom != "undefined")
+    delete Input.gamepad.zoom;
+
+
+  if (typeof(Input.gamepad.axis0) != 'undefined' && typeof(Input.gamepad.axis1) != 'undefined') {
     // Gamepad analog stick for rotation & velocity
     const jx = Math.abs(Input.gamepad.axis0) > 0.2 ? Input.gamepad.axis0 : 0;
     const jy = Math.abs(Input.gamepad.axis1) > 0.2 ? Input.gamepad.axis1 : 0;
@@ -1169,9 +1198,7 @@ function createGameControllerCommands (dt, playerX, playerY, camera) {
       GameControllerCommands.moveDirection = Math.atan2(Input.gamepad.axis1, Input.gamepad.axis0);
     }
   }
-  // TODO: game controller command for backup
   // TODO: game controller command for zoom
-  // TODO: game controller command for autozoom
   // TODO: game controller command for save
   // TODO: game controller command for quit
 }
@@ -1214,9 +1241,10 @@ function createTouchCommands (dt, playerX, playerY, camera) {
     let first = Input.touchEventTracker[touches[0]];
     let second = Input.touchEventTracker[touches[1]];
     let changeInDistanceFromStart = distanceFrom(first.x, first.y, second.x, second.y) - distanceFrom(first.xStart, first.yStart, second.xStart, second.yStart);
-    if (Math.abs(changeInDistanceFromStart) > 10)
-      TouchCommands.zoom = changeInDistanceFromStart;
-
+    if (Math.abs(changeInDistanceFromStart) > 10) {
+      TouchCommands.zoom = changeInDistanceFromStart / 500; // mostly normalized to 0.0 to 1.0
+      if (TouchCommands.zoom > 1.0) TouchCommands.zoom = 1.0;
+    }
     if (first.ended || second.ended) // it was a 2 finger tap
       if (timestamp - first.timestamp < 1000 && Math.abs(changeInDistanceFromStart) < 10) {
         TouchCommands.backup = true;
@@ -1233,6 +1261,9 @@ function createTouchCommands (dt, playerX, playerY, camera) {
       delete Input.touchEventTracker[touches[i]];
     }
   }
+
+  // TODO: game controller command for save
+  // TODO: game controller command for quit
 }
 
 // movement / gyroscope / shake section
@@ -1321,12 +1352,11 @@ function actOnCurrentCommands(dt, player, currentCamera) {
       player.current_path = [[player.x, player.y]];
     }
   }
-  if (Commands.zoom) {
+  if (Commands.zoom && currentCamera == gameCameraNoAutoZoom) {
     try {
       if (currentCamera.referenceZ == false)   // == false because must disambiguate from case 0
         currentCamera.referenceZ = currentCamera.z;
-      lars_sez = currentCamera.referenceZ.toString() + " " + (1 + Commands.zoom / 500).toString();
-      currentCamera.z = currentCamera.referenceZ * (1 + Commands.zoom / 500);
+      currentCamera.z = currentCamera.referenceZ * (1 + Commands.zoom);
       currentCamera.zmin = currentCamera.z;
       currentCamera.zmax = currentCamera.z;
 
