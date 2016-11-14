@@ -2,7 +2,7 @@
   const Input = {
   keys: {  },
   gamepad: { },
-  mouse: { x: 0, y: 0, down: false },
+  mouse: { x: 0, y: 0, down: false, wheel: false },
   touch: { active: false, x: 0, y: 0 },
 
   lars_sez: '',
@@ -12,7 +12,8 @@
       mousemove: this.handleMouseMove,
       mousedown: this.handleMouseDown,
       mouseup: this.handleMouseUp,
-      //wheel: this.handleWheel,
+      contextmenu: this.ignoreThisEvent,
+      wheel: this.handleWheel,
       keydown: this.handleKeyDown,
       keyup: this.handleKeyUp,
       touchstart: this.handleTouchStart,
@@ -25,7 +26,6 @@
 
   handleKeyDown(ev) {
     this.keys[ev.keyCode] = true;
-    console.log(ev.keyCode.toString());
     ev.preventDefault();
   },
 
@@ -45,7 +45,7 @@
   },
 
   handleMouseDown(ev) {
-    this.mouse.down = true;
+    this.mouse.down = ev.button;
     ev.preventDefault();
   },
 
@@ -54,6 +54,14 @@
     ev.preventDefault();
   },
 
+  ignoreThisEvent(ev) {
+    ev.preventDefault();
+  },
+
+  handleWheel(ev) {
+    this.mouse.wheel = ev.deltaY;
+    ev.preventDefault();
+  },
 
   touchEventTracker: { },
 
@@ -108,7 +116,6 @@
     for (var i = 0; i < gamepads.length; i++) {
     	var gp = gamepads[i];
     	if (!gp || !gp.connected) continue;
-      //gp.buttons.forEach((val, idx) => val.pressed ? console.log(`button${idx}` + val.pressed.toString()) : '');
       gp.buttons.forEach((val, idx) => this.gamepad[`button${idx}`] = val.pressed);
       gp.axes.forEach((val, idx) => this.gamepad[`axis${idx}`] = val);
       break; // stop after the first gamepad

@@ -9,8 +9,6 @@ import Stats from 'stats.js';
 import { requestAnimFrame } from './lib/utils';
 import Input from './lib/input';
 
-var lars_sez = '';
-
 // a simple minded stack structure used to store breadcrumbs
 function Stack() {
   this.stack = [];
@@ -165,7 +163,7 @@ var gameState = openAnimation;
 
 var gameCameraNoAutoZoom = { name: 'game_no_auto_zoom', x: 0, y: 0, z: 1.0, zmin: 1.0, zmax: 1.0, referenceZ: false, zdelay: 0, zdelaymax: 500 };
 var gameCameraWithAutoZoom = { name: 'game_auto_zoom', x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
-var animationCamera = { name: 'animation', x: 0, y: 0, z: 0.75, zmin: 0.25, zmax: 5, zdelay: 0, zdelaymax: 500 };
+var animationCamera = { name: 'animation', x: 0, y: 0, z: 0.75, zmin: 0.9, zmax: 5.0, zdelay: 0, zdelaymax: 500 };
 var camera = animationCamera;
 
 const player = {
@@ -495,8 +493,8 @@ function updatePlayerFromScript(dt) {
   abortIntro();
   if (openAnimation.animationState == 0) {
     player.forceZoomIn = true;
-    player.x = 7000;
-    player.y = 5000;
+    player.x = 5000;
+    player.y = 4000;
     if (!openAnimation.animationTimer) {
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 5000);
     }
@@ -1026,6 +1024,7 @@ function createKeyboardCommands (dt, playerX, playerY, camera) {
   KeyboardCommands.moveDirection = false;
   KeyboardCommands.moveSpeedFactor = false;
   KeyboardCommands.backup = false;
+  KeyboardCommands.zoom = false;
   KeyboardCommands.autozoom = false;
   KeyboardCommands.save = false;
 
@@ -1099,8 +1098,10 @@ function createMouseCommands (dt, playerX, playerY, camera) {
   MouseCommands.moveSpeedFactor = false;
   MouseCommands.moveDirection = false;
   MouseCommands.backup = false;
+  MouseCommands.zoom = false;
   MouseCommands.auto_zoom = false;
-  if (Input.mouse.down) {
+
+  if (Input.mouse.down === 0) {  // left mouse for move
     const mx = playerX - (ctx.canvas.width / 2 / camera.z) + (Input.mouse.x / camera.z);
     const my = playerY - (ctx.canvas.height / 2 / camera.z) + (Input.mouse.y / camera.z);
     let distance = distanceFrom(playerX, playerY, mx, my);
@@ -1108,9 +1109,21 @@ function createMouseCommands (dt, playerX, playerY, camera) {
     MouseCommands.moveSpeedFactor = distance / 40;
     MouseCommands.moveDirection = Math.atan2(my - playerY, mx - playerX);
     MouseCommands.attention = true;
+  } else if (Input.mouse.down == 2) {  // right mouse for backup
+    MouseCommands.backup = true;
+    Input.mouse.down = false;  // kill repeats
+    MouseCommands.attention = true;
+  } else if (Input.mouse.down == 1) {   // middle mouse for autozoom
+    MouseCommands.auto_zoom = true;
+    Input.mouse.down = false;  // kill repeats
+    MouseCommands.attention = true;
+  } else if (Input.mouse.wheel) {  // wheel for zoom
+    MouseCommands.zoom = Input.mouse.wheel / 10.0;
+    MouseCommands.attention = true;
+    Input.mouse.wheel = false;
   }
 
-  // TODO: mouse command for zoom
+
   // TODO: mouse command for autozoom
   // TODO: mouse command for save
   // TODO: mouse command for quit
@@ -1198,7 +1211,6 @@ function createGameControllerCommands (dt, playerX, playerY, camera) {
       GameControllerCommands.moveDirection = Math.atan2(Input.gamepad.axis1, Input.gamepad.axis0);
     }
   }
-  // TODO: game controller command for zoom
   // TODO: game controller command for save
   // TODO: game controller command for quit
 }
@@ -1223,8 +1235,9 @@ function createTouchCommands (dt, playerX, playerY, camera) {
   TouchCommands.moveSpeedFactor = false;
   TouchCommands.moveDirection = false;
   TouchCommands.backup = false;
-  TouchCommands.auto_zoom = false;
   TouchCommands.zoom = false;
+  TouchCommands.auto_zoom = false;
+
   let timestamp = Date.now();
   let touches = Object.keys(Input.touchEventTracker);
   if (touches.length == 1) {  // move command
@@ -1243,7 +1256,7 @@ function createTouchCommands (dt, playerX, playerY, camera) {
     let changeInDistanceFromStart = distanceFrom(first.x, first.y, second.x, second.y) - distanceFrom(first.xStart, first.yStart, second.xStart, second.yStart);
     if (Math.abs(changeInDistanceFromStart) > 10) {
       TouchCommands.zoom = changeInDistanceFromStart / 500; // mostly normalized to 0.0 to 1.0
-      if (TouchCommands.zoom > 1.0) TouchCommands.zoom = 1.0;
+      if (TouchCommands.zoom > 1.2) TouchCommands.zoom = 1.2;
     }
     if (first.ended || second.ended) // it was a 2 finger tap
       if (timestamp - first.timestamp < 1000 && Math.abs(changeInDistanceFromStart) < 10) {
@@ -1325,9 +1338,11 @@ function getCurrentCommands(dt, player, currentCamera) {
   Commands.attention = false;
   Commands.moveDirection = false;
   Commands.moveSpeedFactor = false;
-  Commands.auto_zoom = false;
   Commands.backup = false;
   Commands.zoom = false;
+  Commands.auto_zoom = false;
+  Commands.save = false;
+  Commands.quit = false;
 
   Input.update(dt);
   InputCommandFunctions.forEach(e => e(dt, player.x, player.y, currentCamera));
@@ -1356,7 +1371,10 @@ function actOnCurrentCommands(dt, player, currentCamera) {
     try {
       if (currentCamera.referenceZ == false)   // == false because must disambiguate from case 0
         currentCamera.referenceZ = currentCamera.z;
-      currentCamera.z = currentCamera.referenceZ * (1 + Commands.zoom);
+      let newZ = currentCamera.referenceZ * (1 + Commands.zoom);
+      if (newZ < 0.1) newZ = 0.1;
+      if (newZ > 8.0) newZ = 8.0;
+      currentCamera.z = newZ;
       currentCamera.zmin = currentCamera.z;
       currentCamera.zmax = currentCamera.z;
 
