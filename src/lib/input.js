@@ -1,14 +1,19 @@
-const Input = {
-  keys: { },
+
+  const Input = {
+  keys: {  },
   gamepad: { },
-  mouse: { x: 0, y: 0, down: false },
+  mouse: { x: 0, y: 0, down: false, wheel: false },
   touch: { active: false, x: 0, y: 0 },
+
+  lars_sez: '',
 
   init() {
     const windowEvents = {
       mousemove: this.handleMouseMove,
       mousedown: this.handleMouseDown,
       mouseup: this.handleMouseUp,
+      contextmenu: this.ignoreThisEvent,
+      wheel: this.handleWheel,
       keydown: this.handleKeyDown,
       keyup: this.handleKeyUp,
       touchstart: this.handleTouchStart,
@@ -17,6 +22,16 @@ const Input = {
     };
     Object.keys(windowEvents)
       .forEach(k => window.addEventListener(k, windowEvents[k].bind(this)));
+  },
+
+  handleKeyDown(ev) {
+    this.keys[ev.keyCode] = true;
+    ev.preventDefault();
+  },
+
+  handleKeyUp(ev) {
+    delete this.keys[ev.keyCode];
+    ev.preventDefault();
   },
 
   update(dt) {
@@ -29,30 +44,8 @@ const Input = {
     ev.preventDefault();
   },
 
-  handleTouchStart(ev) {
-    this.touch.active = true;
-    if (ev.changedTouches.length > 0) {
-      this.touch.x = ev.changedTouches[0].pageX;
-      this.touch.y = ev.changedTouches[0].pageY;
-    }
-    ev.preventDefault();
-  },
-
-  handleTouchMove(ev) {
-    if (ev.changedTouches.length > 0) {
-      this.touch.x = ev.changedTouches[0].pageX;
-      this.touch.y = ev.changedTouches[0].pageY;
-    }
-    ev.preventDefault();
-  },
-
-  handleTouchEnd(ev) {
-    this.touch.active = false;
-    ev.preventDefault();
-  },
-
   handleMouseDown(ev) {
-    this.mouse.down = true;
+    this.mouse.down = ev.button;
     ev.preventDefault();
   },
 
@@ -61,13 +54,58 @@ const Input = {
     ev.preventDefault();
   },
 
-  handleKeyDown(ev) {
-    this.keys[ev.keyCode] = true;
+  ignoreThisEvent(ev) {
     ev.preventDefault();
   },
 
-  handleKeyUp(ev) {
-    delete this.keys[ev.keyCode];
+  handleWheel(ev) {
+    this.mouse.wheel = ev.deltaY;
+    ev.preventDefault();
+  },
+
+  touchEventTracker: { },
+
+  startTrackTouch(touch) {
+    let id = "t" + touch.identifier.toString();
+    this.touchEventTracker[id] = {
+      timestamp: Date.now(),
+      x: touch.pageX,
+      y: touch.pageY,
+      xStart: touch.pageX,
+      yStart: touch.pageY,
+      ended: false
+    }
+  },
+
+  trackTouch(touch) {
+    let id = "t" + touch.identifier.toString();
+    this.touchEventTracker[id].x = touch.pageX;
+    this.touchEventTracker[id].y = touch.pageY;
+  },
+
+  endTrackTouch(touch) {
+    let id = "t" + touch.identifier.toString();
+    this.touchEventTracker[id].ended = true;
+  },
+
+
+  handleTouchStart(ev) {
+    this.touch.active = true;
+    for (let i = 0; i < ev.changedTouches.length; i++)
+      this.startTrackTouch(ev.changedTouches[i]);
+    ev.preventDefault();
+  },
+
+  handleTouchMove(ev) {
+    for (let i = 0; i < ev.changedTouches.length; i++)
+      this.trackTouch(ev.changedTouches[i]);
+    ev.preventDefault();
+  },
+
+  handleTouchEnd(ev) {
+    this.touch.active = false;
+    for (let i = 0; i < ev.changedTouches.length; i++)
+      this.endTrackTouch(ev.changedTouches[i]);
     ev.preventDefault();
   },
 
