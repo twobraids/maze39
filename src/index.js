@@ -51,7 +51,7 @@ const PI2 = Math.PI * 2;
 // TODO: Load this from an external JSON URL for Issue #13
 const greenMap = {
   baseMapTilePath: 'mazes/Firefox',
-  tileWidth: 512, tileHeight: 512,
+  tileWidth: 500, tileHeight: 500,
   tiles: {},
   width: 4000, height: 4000,
 
