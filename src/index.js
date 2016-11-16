@@ -42,23 +42,23 @@ const PI2 = Math.PI * 2;
 
 // TODO: Load this from an external JSON URL for Issue #13
 const greenMap = {
-  baseMapSrc: 'mazes/Firefox.png',
   baseMapTilePath: 'mazes/Firefox',
-  pathSrc: 'mazes/Firefox.png',
-  solutionSrc: 'mazes/Firefox.green.png',
+  pathSrc: 'mazes/Firefox.green.png',
   passableMin: 67,
-  startX: 496, startY: 435,
-  startHeadingX: 499, startHeadingY: 431,
-  endX: 3258, endY: 433,
-  endHeadingX: 3257, endHeadingY: 427,
-  startArrowButt: [521, 401],
-  startArrowPoint: [509, 418],
-  startArrowLeftWing: [507, 411],
-  startArrowRightWing: [517, 417],
-  endArrowButt: [3259, 415],
-  endArrowPoint: [3262, 394],
-  endArrowLeftWing: [3254,400],
-  endArrowRightWing: [3268, 402],
+  startX: 499, startY: 430,
+  startHeadingX: 509, startHeadingY: 420,
+  endX: 3258, endY: 430,
+  endHeadingX: 3256, endHeadingY: 417,
+  startArrowButt: [530,397],
+  startArrowPoint: [509, 420],
+  startArrowLeftWing: [522, 419],
+  startArrowRightWing: [509, 407],
+  startMessageBase: [509, 420],
+  endArrowButt: [3256, 417],
+  endArrowPoint: [3256, 385],
+  endArrowLeftWing: [3247,396],
+  endArrowRightWing: [3265, 397],
+  endMessageBase: [3256, 417],
   solutionColor: "#0f0",
   width: 4000, height: 4000,
   tileWidth: 512, tileHeight: 512,
@@ -68,23 +68,23 @@ const greenMap = {
 };
 
 const redMap = {
-  baseMapSrc: greenMap.baseMapSrc,
   baseMapTilePath: greenMap.baseMapTilePath,
-  pathSrc: greenMap.pathSrc,
-  solutionSrc: 'mazes/Firefox.red.png',
+  pathSrc: 'mazes/Firefox.red.png',
   passableMin: greenMap.passableMin,
-  startX: 486, startY: 422,
-  startHeadingX: 487, startHeadingY: 417,
-  endX: 3229, endY: 429,
-  endHeadingX: 3225, endHeadingY: 425,
-  startArrowButt: [486, 388],
-  startArrowPoint: [487, 412],
-  startArrowLeftWing: [495, 404],
-  startArrowRightWing: [479, 405],
-  endArrowButt: [3219, 419],
-  endArrowPoint: [3203, 406],
-  endArrowLeftWing: [3204,417],
-  endArrowRightWing: [3213, 406],
+  startX: 486, startY: 424,
+  startHeadingX: 490, startHeadingY: 410,
+  endX: 3228, endY: 428,
+  endHeadingX: 3214, endHeadingY: 416,
+  startArrowButt: [498, 380],
+  startArrowPoint: [490, 410],
+  startArrowLeftWing: [501, 403],
+  startArrowRightWing: [485, 398],
+  startMessageBase: [490, 410],
+  endArrowButt: [3214, 416],
+  endArrowPoint: [3190, 393],
+  endArrowLeftWing: [3192,408],
+  endArrowRightWing: [3204, 395],
+  endMessageBase: [3214, 416],
   solutionColor: "#f00",
   width: greenMap.width, height: greenMap.height,
   tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
@@ -93,9 +93,63 @@ const redMap = {
   solutionData: []
 };
 
-const possibleGames = [redMap, greenMap];
+const violetMap = {
+  baseMapTilePath: greenMap.baseMapTilePath,
+  pathSrc: 'mazes/Firefox.violet.png',
+  passableMin: greenMap.passableMin,
+  startX: 2802, startY: 212,
+  startHeadingX: 2816, startHeadingY: 212,
+  endX: 2776, endY: 200,
+  endHeadingX: 2757, endHeadingY: 206,
+  startArrowButt: [2843, 192],
+  startArrowPoint: [2816, 206],
+  startArrowLeftWing: [2830, 209],
+  startArrowRightWing: [2822, 194],
+  startMessageBase: [2822, 194], // shift up & right to avoid end arrow
+  endArrowButt: [2770, 187],
+  endArrowPoint: [2757, 159],
+  endArrowLeftWing: [2751,171],
+  endArrowRightWing: [2769, 163],
+  endMessageBase: [2770, 187],
+  solutionColor: "#e0f",
+  width: greenMap.width, height: greenMap.height,
+  tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
+  tiles: greenMap.tiles,
+  pathData: greenMap.pathData,
+  solutionData: []
+};
 
+const blueMap = {
+  baseMapTilePath: greenMap.baseMapTilePath,
+  pathSrc: 'mazes/Firefox.blue.png',
+  passableMin: greenMap.passableMin,
+  startX: 2776, startY: 200,
+  startHeadingX: 2770, startHeadingY: 187,
+  endX: 2881, endY: 3822,
+  endHeadingX: 2881, endHeadingY: 3833,
+  startArrowPoint: [2770, 187],
+  startArrowButt: [2757, 159],
+  startArrowLeftWing: [2773, 174],
+  startArrowRightWing: [2757, 181],
+  startMessageBase: [2776, 187],
+  endArrowButt: [2881, 3833],
+  endArrowPoint: [2880, 3854],
+  endArrowLeftWing: [2873,3846],
+  endArrowRightWing: [2887, 3847],
+  endMessageBase: [2881, 3933], // shift way down to print under arrow
+  solutionColor: "#2ee",
+  width: greenMap.width, height: greenMap.height,
+  tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
+  tiles: greenMap.tiles,
+  pathData: greenMap.pathData,
+  solutionData: []
+};
+
+const possibleGames = [redMap, greenMap, violetMap, blueMap];
 var map = possibleGames[getRandomInt(0, possibleGames.length)];
+const animationStartPoints = [[5000, 4000], [-1000, -1000], [0, 5000], [5000, -500]];
+const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartPoints.length)];
+
 
 
 const gamePlay = {
@@ -171,6 +225,8 @@ const player = {
   y: 0,
   x_history: [],
   y_history: [],
+  restoredX: 0,  // location of most recent jump to breadcrumb
+  restoredY: 0,  // location of most recent jump to breadcrumb
   r: Math.PI * (3/2),
   forceZoomIn: false,
   r_history: [],
@@ -188,7 +244,7 @@ const player = {
 const updateTimer = { };
 const drawTimer = { };
 const debugIn = { tileGrid: false };
-const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '', gameState: '', lars_sez: '' };
+const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '', gameState: '' };
 
 let gui, statsDraw, statsUpdate;
 
@@ -210,19 +266,13 @@ function load() {
   map.pathImg = new Image();
   map.pathImg.src = map.pathSrc;
 
-  map.solutionImg = new Image();
-  map.solutionImg.src = map.solutionSrc;
-
   map.tileCols = Math.ceil(map.width / map.tileWidth);
   map.tileRows = Math.ceil(map.height / map.tileHeight);
 
   const loadBaseMapImg = e => {
-    ctx.drawImage(map.solutionImg, 0, 0);
-    map.solutionData = ctx.getImageData(0, 0, map.width, map.height).data;
 
     ctx.drawImage(map.pathImg, 0, 0);
     map.pathData = ctx.getImageData(0, 0, map.width, map.height).data;
-
     map.pathImg.removeEventListener('load', loadBaseMapImg);
 
     init();
@@ -493,8 +543,8 @@ function updatePlayerFromScript(dt) {
   abortIntro();
   if (openAnimation.animationState == 0) {
     player.forceZoomIn = true;
-    player.x = 5000;
-    player.y = 4000;
+    player.x = animationStartPoint[0];
+    player.y = animationStartPoint[1];
     if (!openAnimation.animationTimer) {
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 5000);
     }
@@ -546,7 +596,7 @@ function updatePlayerFromScript(dt) {
     }
     player.forceZoomIn = true;
     if (!openAnimation.animationTimer)
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 5000);
 
   } else if (animationState == 10) {
     player.x = map.startX;
@@ -641,7 +691,7 @@ function drawMessages(dt) {
     ctx.fillStyle = '#0f0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("You're going to start here...", map.startX, map.startY - 42);
+    ctx.fillText("You're going to start here...", map.startMessageBase[0], map.startMessageBase[1] - 42);
     ctx.restore();
 
   } else if (animationState == 5) {
@@ -650,7 +700,7 @@ function drawMessages(dt) {
     ctx.fillStyle = '#0f0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("The goal is to exit here.",  map.endX, map.endY - 52);
+    ctx.fillText("The goal is to exit here.",  map.endMessageBase[0], map.endMessageBase[1] - 52);
     ctx.restore();
 
   } else if (animationState == 6) {
@@ -659,7 +709,7 @@ function drawMessages(dt) {
     ctx.fillStyle = '#ff0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("You've only got an hour.", map.endX, map.endY - 52);
+    ctx.fillText("You've only got an hour.", map.endMessageBase[0], map.endMessageBase[1] - 52);
     ctx.restore();
 
   } else if (animationState == 8) {
@@ -668,8 +718,8 @@ function drawMessages(dt) {
     ctx.fillStyle = '#f00';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("If the cursor gradually turns", map.startX, map.startY - 62);
-    ctx.fillText("red, you're on the wrong path", map.startX, map.startY - 42);
+    ctx.fillText("If the cursor gradually turns", map.startMessageBase[0], map.startMessageBase[1] - 62);
+    ctx.fillText("red, you're on the wrong path", map.startMessageBase[0], map.startMessageBase[1] - 42);
     ctx.restore();
 
   } else if (animationState == 9) {
@@ -678,8 +728,9 @@ function drawMessages(dt) {
     ctx.fillStyle = '#ff0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("Use <backspace> to return", map.startX, map.startY - 62);
-    ctx.fillText("to a numbered breadcrumb", map.startX, map.startY - 42);
+    ctx.fillText("Use <bsp>, right mouse button, ", map.startMessageBase[0], map.startMessageBase[1] - 72);
+    ctx.fillText("2 finger tap, or blue button to return", map.startMessageBase[0], map.startMessageBase[1] - 57);
+    ctx.fillText("to a numbered breadcrumb", map.startMessageBase[0], map.startMessageBase[1] - 42);
     ctx.restore();
 
   } else if (animationState == 10) {
@@ -800,6 +851,23 @@ function getPixelAt(x, y, pixelData) {
   return pixelData.slice(pos, pos + 4);
 }
 
+function pixelIsRedAt(x, y, pixelData) {
+  const d = getPixelAt(x, y, pixelData);
+  try {
+    return pixelData[4 * (Math.round(x) + (Math.round(y) * map.width))] > 128;
+  } catch (err) {
+    return false;
+  }
+}
+
+function pixelIsGreenAt(x, y, pixelData) {
+  return pixelData[4 * (Math.round(x) + (Math.round(y) * map.width)) + 1] > 128;
+}
+
+function pixelIsBlueAt(x, y, pixelData) {
+  return pixelData[4 * (Math.round(x) + (Math.round(y) * map.width)) + 2] > 128;
+}
+
 function getPixelAvgAt(x, y, pixelData) {
   const d = getPixelAt(x, y, pixelData);
   return (d[0] + d[1] + d[2]) / 3;
@@ -811,7 +879,7 @@ function getPixelSumAt(x, y, pixelData) {
 }
 
 function isPassableAt(x, y) {
-  return getPixelSumAt(x, y, map.pathData) > map.passableMin;
+  return pixelIsBlueAt(x, y, map.pathData);
 }
 
 function distanceFrom(x1, y1, x2, y2) {
@@ -864,7 +932,7 @@ function suggestBetter(x, y) {
   let betterX = xAxis[middleX][0];
   let betterY = yAxis[middleY][0];
 
-  if (lowY == -1 && lowX == -1 && highX == 9 && highY == 9 && player.breadcrumb_stack.noCloser(betterX, betterY, 50, 15)) {
+  if (pixelIsRedAt(betterX, betterY, map.pathData) && player.breadcrumb_stack.noCloser(betterX, betterY, 15, 8) && distanceFrom(betterX, betterY, player.restoredX, player.restoredY) > 5) {
      player.breadcrumb_stack.push([betterX, betterY]);
   }
 
@@ -887,7 +955,7 @@ function upgradeHintingColor() {
 }
 
 function drawPlayer(dt) {
-  let inSolutionPath = getPixelAvgAt(player.x, player.y, map.solutionData) != 0;
+  let inSolutionPath = pixelIsGreenAt(player.x, player.y, map.pathData);
 
   if (player.colorHinting && !player.colorHintingTimer && !inSolutionPath && !player.colorOverride) {
     // degrade the player color every 60 seconds with a timer
@@ -904,8 +972,6 @@ function drawPlayer(dt) {
   let color_str = "#".concat(player.color.toString(16));
   ctx.strokeStyle = color_str;
   ctx.fillStyle = color_str;
-
-  //ctx.fillText(lars_sez + " " + camera.z.toString(), player.x, player.y - 10);
 
   var drawR = player.r;
 
@@ -1365,6 +1431,8 @@ function actOnCurrentCommands(dt, player, currentCamera) {
       player.used_paths.push(player.current_path);
       [player.x, player.y] = player.breadcrumb_stack.pop();
       player.current_path = [[player.x, player.y]];
+      player.restoredX = player.x;
+      player.restoredY = player.y;
     }
   }
   if (Commands.zoom && currentCamera == gameCameraNoAutoZoom) {
