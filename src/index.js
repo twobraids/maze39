@@ -76,6 +76,33 @@ const greenMap = {
   endMessageBase: [3256, 417],
 };
 
+const greenMapBackwards = {
+  baseMapTilePath: 'mazes/Firefox',
+  tileWidth: 500, tileHeight: 500,
+  tiles: {},
+  width: 4000, height: 4000,
+
+  pathSrc: 'mazes/Firefox.green.png',
+  solutionColor: "#8f8",
+  pathData: [],
+
+  startX: 3258, startY: 430,
+  startHeadingX: 3258, startHeadingY: 417,
+  startArrowButt: [3259, 385],
+  startArrowPoint: [3258, 417],
+  startArrowLeftWing: [3249, 407],
+  startArrowRightWing: [3266, 408],
+  startMessageBase: [3258, 417],
+
+  endX: 499, endY: 430,
+  endHeadingX: 509, endHeadingY: 420,
+  endArrowButt: [509, 420],
+  endArrowPoint: [530, 397],
+  endArrowLeftWing: [515,399],
+  endArrowRightWing: [529, 413],
+  endMessageBase: [509, 420],
+};
+
 const redMap = {
 
   baseMapTilePath: greenMap.baseMapTilePath,
@@ -102,6 +129,35 @@ const redMap = {
   endArrowLeftWing: [3192,408],
   endArrowRightWing: [3204, 395],
   endMessageBase: [3214, 416],
+};
+
+const redMapBackwards = {
+
+  baseMapTilePath: greenMap.baseMapTilePath,
+  tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
+  tiles: greenMap.tiles,
+  width: greenMap.width, height: greenMap.height,
+
+  pathSrc: 'mazes/Firefox.red.png',
+  solutionColor: "#f99",
+  pathData: greenMap.pathData,
+
+  startX: 3228, startY: 428,
+  startHeadingX: 3214, startHeadingY: 416,
+  startArrowButt: [3190, 393],
+  startArrowPoint: [3214, 416],
+  startArrowLeftWing: [3212,401],
+  startArrowRightWing: [3200, 415],
+  startMessageBase: [3214, 416],
+
+  endX: 486, endY: 424,
+  endHeadingX: 490, endHeadingY: 410,
+  endArrowButt: [490, 410],
+  endArrowPoint: [498, 380],
+  endArrowLeftWing: [487, 388],
+  endArrowRightWing: [505, 392],
+  endMessageBase: [490, 410],
+
 };
 
 const violetMap = {
@@ -159,7 +215,7 @@ const blueMap = {
 };
 
 // repeats in the possibleGames variable are to make some solutions rarer than others
-const possibleGames = [redMap, greenMap, redMap, greenMap, redMap, greenMap, violetMap, violetMap, blueMap];
+const possibleGames = [redMap, greenMap, redMap, greenMap, redMapBackwards, greenMapBackwards, violetMap, violetMap, blueMap];
 var map = possibleGames[getRandomInt(0, possibleGames.length)];
 const animationStartPoints = [[5000, 4000], [-1000, -1000], [0, 5000], [5000, -500]];
 const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartPoints.length)];
