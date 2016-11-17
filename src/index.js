@@ -50,10 +50,14 @@ const PI2 = Math.PI * 2;
 
 // TODO: Load this from an external JSON URL for Issue #13
 const greenMap = {
+  name: 'green',
+
   baseMapTilePath: 'mazes/Firefox',
   tileWidth: 500, tileHeight: 500,
-  tiles: {},
   width: 4000, height: 4000,
+  numberOfTileRows: Math.ceil(4000 / 500),
+  numberOfTileColumns: Math.ceil(4000 / 500),
+  tiles: {},
 
   pathSrc: 'mazes/Firefox.green.png',
   solutionColor: "#0f0",
@@ -77,10 +81,14 @@ const greenMap = {
 };
 
 const greenMapBackwards = {
-  baseMapTilePath: 'mazes/Firefox',
-  tileWidth: 500, tileHeight: 500,
-  tiles: {},
-  width: 4000, height: 4000,
+  name: 'green-backwards',
+
+  baseMapTilePath: greenMap.baseMapTilePath,
+  tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
+  width: greenMap.width, height: greenMap.height,
+  numberOfTileRows: greenMap.numberOfTileRows,
+  numberOfTileColumns: greenMap.numberOfTileColumns,
+  tiles: greenMap.tiles,
 
   pathSrc: 'mazes/Firefox.green.png',
   solutionColor: "#8f8",
@@ -104,11 +112,14 @@ const greenMapBackwards = {
 };
 
 const redMap = {
+  name: 'red',
 
   baseMapTilePath: greenMap.baseMapTilePath,
   tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
-  tiles: greenMap.tiles,
   width: greenMap.width, height: greenMap.height,
+  numberOfTileRows: greenMap.numberOfTileRows,
+  numberOfTileColumns: greenMap.numberOfTileColumns,
+  tiles: greenMap.tiles,
 
   pathSrc: 'mazes/Firefox.red.png',
   solutionColor: "#f00",
@@ -132,11 +143,14 @@ const redMap = {
 };
 
 const redMapBackwards = {
+  name: 'red-backwards',
 
   baseMapTilePath: greenMap.baseMapTilePath,
   tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
-  tiles: greenMap.tiles,
   width: greenMap.width, height: greenMap.height,
+  numberOfTileRows: greenMap.numberOfTileRows,
+  numberOfTileColumns: greenMap.numberOfTileColumns,
+  tiles: greenMap.tiles,
 
   pathSrc: 'mazes/Firefox.red.png',
   solutionColor: "#f99",
@@ -161,10 +175,14 @@ const redMapBackwards = {
 };
 
 const violetMap = {
+  name: 'violet',
+
   baseMapTilePath: greenMap.baseMapTilePath,
   tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
-  tiles: greenMap.tiles,
   width: greenMap.width, height: greenMap.height,
+  numberOfTileRows: greenMap.numberOfTileRows,
+  numberOfTileColumns: greenMap.numberOfTileColumns,
+  tiles: greenMap.tiles,
 
   pathSrc: 'mazes/Firefox.violet.png',
   solutionColor: "#e0f",
@@ -188,9 +206,13 @@ const violetMap = {
 };
 
 const blueMap = {
+  name: 'blue',
+
   baseMapTilePath: greenMap.baseMapTilePath,
-  width: greenMap.width, height: greenMap.height,
   tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
+  width: greenMap.width, height: greenMap.height,
+  numberOfTileRows: greenMap.numberOfTileRows,
+  numberOfTileColumns: greenMap.numberOfTileColumn,
   tiles: greenMap.tiles,
 
   pathSrc: 'mazes/Firefox.blue.png',
@@ -216,7 +238,7 @@ const blueMap = {
 
 // repeats in the possibleGames variable are to make some solutions rarer than others
 const possibleGames = [redMap, greenMap, redMap, greenMap, redMapBackwards, greenMapBackwards, violetMap, violetMap, blueMap];
-var map = possibleGames[getRandomInt(0, possibleGames.length)];
+var map = possibleGames[getRandomInt(0, possibleGames.length - 1)];
 const animationStartPoints = [[5000, 4000], [-1000, -1000], [0, 5000], [5000, -500]];
 const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartPoints.length)];
 
@@ -351,6 +373,7 @@ let gui, statsDraw, statsUpdate;
 const ctx = document.getElementById('viewport').getContext('2d');
 ctx.canvas.width = map.width;
 ctx.canvas.height = map.height;
+ctx.globalCompositeOperation = 'mulitply';
 
 function load() {
   // HACK: Render the whole path map at original scale and grab image data
@@ -445,6 +468,7 @@ function drawDebug(dt) {
 }
 
 function drawMaze(dt) {
+  ctx.globalCompositeOperation = 'source-over'
   // Find the rectangle of visible map
   const mapX = player.x - (ctx.canvas.width / 2 / camera.z);
   const mapY = player.y - (ctx.canvas.height / 2 / camera.z);
@@ -495,22 +519,6 @@ function drawMaze(dt) {
   }
 }
 
-function draw_a_path(a_path) {
-  if (a_path.length > 1) {
-    ctx.save();
-    ctx.globalCompositeOperation = "multiply";
-    ctx.beginPath();
-    ctx.lineWidth = "8";
-
-    ctx.moveTo(a_path[0][0], a_path[0][1]);
-    for (let j = 1; j < a_path.length; j++) {
-      ctx.lineTo(a_path[j][0], a_path[j][1]);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-}
-
 function drawArrows(dt) {
   ctx.save();
   ctx.lineWidth = "4";
@@ -534,42 +542,87 @@ function drawArrows(dt) {
   ctx.restore();
 }
 
+function draw_a_path(a_path) {
+  if (typeof a_path == "undefined") {
+    console.log('trouble');
+    return;
+  }
+  if (a_path.length > 1) {
+    ctx.beginPath();
+
+    ctx.moveTo(a_path[0], a_path[1]);
+    for (let j = 2; j < a_path.length; j+=2) {
+      ctx.lineTo(a_path[j], a_path[j+1]);
+    }
+    ctx.stroke();
+  }
+}
+
 function drawUsedPaths(dt) {
   ctx.save();
-  ctx.lineWidth = "4";
+
+  ctx.lineWidth = "8";
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.strokeStyle = map.solutionColor;
-  if (player.current_path.length > 1) {
-  let [last_x, last_y] = player.current_path[player.current_path.length - 1];
-    if (Math.abs(last_x - player.x) > 6 || Math.abs(last_y - player.y) > 6) {
-      player.current_path.push([player.x, player.y]);
-    }
-    draw_a_path(player.current_path);
-  } else {
-    player.current_path.push([player.x, player.y]);
+  ctx.globalCompositeOperation = 'color';
+
+  // update used paths
+  let lastX = player.current_path[player.current_path.length - 2];
+  let lastY = player.current_path[player.current_path.length - 1];
+  if (Math.abs(lastX - player.x) > 6 || Math.abs(lastY - player.y) > 6) {
+    player.current_path.push(player.x);
+    player.current_path.push(player.y);
+  }
+  draw_a_path(player.current_path);
+
+  const mapX = player.x - (ctx.canvas.width / 2 / camera.z);
+  const mapY = player.y - (ctx.canvas.height / 2 / camera.z);
+  const mapW = ctx.canvas.width / camera.z;
+  const mapH = ctx.canvas.height / camera.z;
+
+  // Find the start/end indices for tiles in visible map
+  const rowStart = Math.floor(mapY / map.tileHeight) - 1;
+  const rowEnd = Math.ceil(rowStart + (mapH / map.tileHeight)) + 1;
+
+  const colStart = Math.floor(mapX / map.tileWidth) - 1;
+  const colEnd = Math.ceil(colStart + (mapW / map.tileWidth)) + 1;
+
+  // column
+  for (let i = colStart; i <= colEnd; i++) {
+    if (i >= 0 && i < map.numberOfTileColumns)
+      for (let j = rowStart; j <= rowEnd; j++)
+        if (j >= 0 && j < map.numberOfTileRows) {
+          let usedPathsForThisTile = player.used_paths[i][j];
+          for (let k = 0; k < usedPathsForThisTile.length; k++)
+            draw_a_path(usedPathsForThisTile[k]);
+        }
   }
 
-  for (let i = 0; i < player.used_paths.length; i++) {
-    draw_a_path(player.used_paths[i]);
-  }
-  if (player.current_path.length > 40) {
-    player.used_paths.push(player.current_path);
-    player.current_path = [[player.x, player.y]];
+  if (player.current_path.length > 60) {
+    let columnNumber = Math.trunc(player.current_path[0] / map.tileWidth);
+    let rowNumber = Math.trunc(player.current_path[1] / map.tileHeight);
+    player.used_paths[columnNumber][rowNumber].push(player.current_path);
+    player.current_path = [player.x, player.y];
   }
 
   ctx.restore();
 }
 
 function drawBreadCrumbs(dt) {
+  ctx.save();
+
+  ctx.strokeStyle = '#fff';
+  ctx.fillStyle = '#fff';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+
   for (let i = 0; i < player.breadcrumb_stack.stack.length; i++) {
     let [x, y] = player.breadcrumb_stack.stack[i];
-    ctx.strokeStyle = '#fff';
-    ctx.fillStyle = '#fff';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
     ctx.fillText(i.toString(), x, y);
-   }
+  }
+
+  ctx.restore();
 }
 
 function initPlayer() {
@@ -580,6 +633,7 @@ function initPlayer() {
   }
   player.x = map.startX;
   player.y = map.startY;
+  player.current_path = [player.x, player.y];
   player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
   player.v = 0;
   player.color = 4095;
@@ -590,6 +644,15 @@ function initPlayer() {
     { t: 0, delay: 600, startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000 }
    ]
   };
+  // create a big column ordered grid of lists that mirror the size and shape of the tile
+  // maps for use in saving sets of used paths.  This will allow optimization of drawing
+  // only the used paths that are actually in view
+  player.used_paths = [];
+  for (let i = 0; i < map.numberOfTileColumns; i++) {
+    player.used_paths.push([]); // the X dimension
+    for (let j = 0; j < map.numberOfTileRows; j++)
+      player.used_paths[i].push([]);  // the Y dimension
+  }
 }
 
 // The openning animation is also a state system.  The states are numbered and can be advanced
@@ -921,6 +984,8 @@ function updatePlayerMotion(dt) {
   if (pixelIsRedAt(tx, ty, map.pathData) && player.breadcrumb_stack.noCloser(tx, ty, 15, 8) && distanceFrom(tx, ty, player.restoredX, player.restoredY) > 5) {
     player.breadcrumb_stack.push([tx, ty]);
   }
+
+
 }
 
 function pixelIsRedAt(x, y) {
@@ -1487,9 +1552,11 @@ function actOnCurrentCommands(dt, player, currentCamera) {
   }
   if (Commands.backup) {
     if (player.breadcrumb_stack.stack.length > 0) {
-      player.used_paths.push(player.current_path);
+      let columnNumber = Math.trunc(player.current_path[0] / map.tileWidth);
+      let rowNumber = Math.trunc(player.current_path[1] / map.tileHeight);
+      player.used_paths[columnNumber][rowNumber].push(player.current_path);
       [player.x, player.y] = player.breadcrumb_stack.pop();
-      player.current_path = [[player.x, player.y]];
+      player.current_path = [player.x, player.y];
       player.restoredX = player.x;
       player.restoredY = player.y;
     }
