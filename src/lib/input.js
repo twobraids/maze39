@@ -5,8 +5,6 @@
   mouse: { x: 0, y: 0, down: false, wheel: false },
   touch: { active: false, x: 0, y: 0 },
 
-  lars_sez: '',
-
   init() {
     const windowEvents = {
       mousemove: this.handleMouseMove,

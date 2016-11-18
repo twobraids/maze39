@@ -10,8 +10,8 @@ const through = require('through2');
 
 const DEBUG = process.env.NODE_ENV === 'development';
 
-const TILE_WIDTH = 512;
-const TILE_HEIGHT = 512;
+const TILE_WIDTH = 500;
+const TILE_HEIGHT = 500;
 
 gulp.task('build:html', () => gulp.src('./src/**/*.html')
   .pipe(gulp.dest('./dist'))

@@ -9,6 +9,14 @@ import Stats from 'stats.js';
 import { requestAnimFrame } from './lib/utils';
 import Input from './lib/input';
 
+// Utilities Section
+
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
 // a simple minded stack structure used to store breadcrumbs
 function Stack() {
   this.stack = [];
@@ -42,68 +50,212 @@ const PI2 = Math.PI * 2;
 
 // TODO: Load this from an external JSON URL for Issue #13
 const greenMap = {
-  baseMapSrc: 'mazes/Firefox.png',
+  name: 'green',
+
   baseMapTilePath: 'mazes/Firefox',
-  pathSrc: 'mazes/Firefox.png',
-  solutionSrc: 'mazes/Firefox.green.png',
-  passableMin: 67,
-  startX: 496, startY: 435,
-  startHeadingX: 499, startHeadingY: 431,
-  endX: 3258, endY: 433,
-  endHeadingX: 3257, endHeadingY: 427,
-  startArrowButt: [521, 401],
-  startArrowPoint: [509, 418],
-  startArrowLeftWing: [507, 411],
-  startArrowRightWing: [517, 417],
-  endArrowButt: [3259, 415],
-  endArrowPoint: [3262, 394],
-  endArrowLeftWing: [3254,400],
-  endArrowRightWing: [3268, 402],
-  solutionColor: "#0f0",
+  tileWidth: 500, tileHeight: 500,
   width: 4000, height: 4000,
-  tileWidth: 512, tileHeight: 512,
+  numberOfTileRows: Math.ceil(4000 / 500),
+  numberOfTileColumns: Math.ceil(4000 / 500),
   tiles: {},
+
+  pathSrc: 'mazes/Firefox.green.png',
+  solutionColor: "#0f0",
   pathData: [],
-  solutionData: []
+
+  startX: 499, startY: 430,
+  startHeadingX: 509, startHeadingY: 420,
+  startArrowButt: [530,397],
+  startArrowPoint: [509, 420],
+  startArrowLeftWing: [522, 419],
+  startArrowRightWing: [509, 407],
+  startMessageBase: [509, 420],
+
+  endX: 3258, endY: 430,
+  endHeadingX: 3256, endHeadingY: 417,
+  endArrowButt: [3256, 417],
+  endArrowPoint: [3256, 385],
+  endArrowLeftWing: [3247,396],
+  endArrowRightWing: [3265, 397],
+  endMessageBase: [3256, 417],
+};
+
+const greenMapBackwards = {
+  name: 'green-backwards',
+
+  baseMapTilePath: greenMap.baseMapTilePath,
+  tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
+  width: greenMap.width, height: greenMap.height,
+  numberOfTileRows: greenMap.numberOfTileRows,
+  numberOfTileColumns: greenMap.numberOfTileColumns,
+  tiles: greenMap.tiles,
+
+  pathSrc: 'mazes/Firefox.green.png',
+  solutionColor: "#0f0",
+  pathData: [],
+
+  startX: 3258, startY: 430,
+  startHeadingX: 3258, startHeadingY: 417,
+  startArrowButt: [3259, 385],
+  startArrowPoint: [3258, 417],
+  startArrowLeftWing: [3249, 407],
+  startArrowRightWing: [3266, 408],
+  startMessageBase: [3258, 417],
+
+  endX: 499, endY: 430,
+  endHeadingX: 509, endHeadingY: 420,
+  endArrowButt: [509, 420],
+  endArrowPoint: [530, 397],
+  endArrowLeftWing: [515,399],
+  endArrowRightWing: [529, 413],
+  endMessageBase: [509, 420],
 };
 
 const redMap = {
-  baseMapSrc: greenMap.baseMapSrc,
+  name: 'red',
+
   baseMapTilePath: greenMap.baseMapTilePath,
-  pathSrc: greenMap.pathSrc,
-  solutionSrc: 'mazes/Firefox.red.png',
-  passableMin: greenMap.passableMin,
-  startX: 486, startY: 422,
-  startHeadingX: 487, startHeadingY: 417,
-  endX: 3229, endY: 429,
-  endHeadingX: 3225, endHeadingY: 425,
-  startArrowButt: [486, 388],
-  startArrowPoint: [487, 412],
-  startArrowLeftWing: [495, 404],
-  startArrowRightWing: [479, 405],
-  endArrowButt: [3219, 419],
-  endArrowPoint: [3203, 406],
-  endArrowLeftWing: [3204,417],
-  endArrowRightWing: [3213, 406],
-  solutionColor: "#f00",
-  width: greenMap.width, height: greenMap.height,
   tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
+  width: greenMap.width, height: greenMap.height,
+  numberOfTileRows: greenMap.numberOfTileRows,
+  numberOfTileColumns: greenMap.numberOfTileColumns,
   tiles: greenMap.tiles,
+
+  pathSrc: 'mazes/Firefox.red.png',
+  solutionColor: "#f00",
   pathData: greenMap.pathData,
-  solutionData: []
+
+  startX: 486, startY: 424,
+  startHeadingX: 490, startHeadingY: 410,
+  startArrowButt: [498, 380],
+  startArrowPoint: [490, 410],
+  startArrowLeftWing: [501, 403],
+  startArrowRightWing: [485, 398],
+  startMessageBase: [490, 410],
+
+  endX: 3228, endY: 428,
+  endHeadingX: 3214, endHeadingY: 416,
+  endArrowButt: [3214, 416],
+  endArrowPoint: [3190, 393],
+  endArrowLeftWing: [3192,408],
+  endArrowRightWing: [3204, 395],
+  endMessageBase: [3214, 416],
 };
 
-const possibleGames = [redMap, greenMap];
+const redMapBackwards = {
+  name: 'red-backwards',
 
+  baseMapTilePath: greenMap.baseMapTilePath,
+  tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
+  width: greenMap.width, height: greenMap.height,
+  numberOfTileRows: greenMap.numberOfTileRows,
+  numberOfTileColumns: greenMap.numberOfTileColumns,
+  tiles: greenMap.tiles,
+
+  pathSrc: 'mazes/Firefox.red.png',
+  solutionColor: "#f00",
+  pathData: greenMap.pathData,
+
+  startX: 3228, startY: 428,
+  startHeadingX: 3214, startHeadingY: 416,
+  startArrowButt: [3190, 393],
+  startArrowPoint: [3214, 416],
+  startArrowLeftWing: [3212,401],
+  startArrowRightWing: [3200, 415],
+  startMessageBase: [3214, 416],
+
+  endX: 486, endY: 424,
+  endHeadingX: 490, endHeadingY: 410,
+  endArrowButt: [490, 410],
+  endArrowPoint: [498, 380],
+  endArrowLeftWing: [487, 388],
+  endArrowRightWing: [505, 392],
+  endMessageBase: [490, 410],
+
+};
+
+const violetMap = {
+  name: 'violet',
+
+  baseMapTilePath: greenMap.baseMapTilePath,
+  tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
+  width: greenMap.width, height: greenMap.height,
+  numberOfTileRows: greenMap.numberOfTileRows,
+  numberOfTileColumns: greenMap.numberOfTileColumns,
+  tiles: greenMap.tiles,
+
+  pathSrc: 'mazes/Firefox.violet.png',
+  solutionColor: "#e0f",
+  pathData: greenMap.pathData,
+
+  startX: 2802, startY: 212,
+  startHeadingX: 2816, startHeadingY: 212,
+  startArrowButt: [2843, 192],
+  startArrowPoint: [2816, 206],
+  startArrowLeftWing: [2830, 209],
+  startArrowRightWing: [2822, 194],
+  startMessageBase: [2822, 194], // shift up & right to avoid end arrow
+
+  endX: 2776, endY: 200,
+  endHeadingX: 2757, endHeadingY: 206,
+  endArrowButt: [2770, 187],
+  endArrowPoint: [2757, 159],
+  endArrowLeftWing: [2751,171],
+  endArrowRightWing: [2769, 163],
+  endMessageBase: [2770, 187],
+};
+
+const blueMap = {
+  name: 'blue',
+
+  baseMapTilePath: greenMap.baseMapTilePath,
+  tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
+  width: greenMap.width, height: greenMap.height,
+  numberOfTileRows: greenMap.numberOfTileRows,
+  numberOfTileColumns: greenMap.numberOfTileColumns,
+  tiles: greenMap.tiles,
+
+  pathSrc: 'mazes/Firefox.blue.png',
+  solutionColor: "#2ee",
+  pathData: greenMap.pathData,
+
+  startX: 2776, startY: 200,
+  startHeadingX: 2770, startHeadingY: 187,
+  startArrowPoint: [2770, 187],
+  startArrowButt: [2757, 159],
+  startArrowLeftWing: [2773, 174],
+  startArrowRightWing: [2757, 181],
+  startMessageBase: [2776, 187],
+
+  endX: 2881, endY: 3822,
+  endHeadingX: 2881, endHeadingY: 3833,
+  endArrowButt: [2881, 3833],
+  endArrowPoint: [2880, 3854],
+  endArrowLeftWing: [2873,3846],
+  endArrowRightWing: [2887, 3847],
+  endMessageBase: [2881, 3933], // shift way down to print under arrow
+};
+
+// repeats in the possibleGames variable are to make some solutions rarer than others
+const possibleGames = [redMap, greenMap, redMap, greenMap, redMapBackwards, greenMapBackwards, violetMap, violetMap, blueMap];
 var map = possibleGames[getRandomInt(0, possibleGames.length)];
+const animationStartPoints = [[5000, 4000], [-1000, -1000], [0, 5000], [5000, -500]];
+const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartPoints.length)];
 
+// the game has states:
+//    gamePlay -- in this state the user has control of the cursor
+//    openAnimation -- used at the beginning where the movement of the cursor is scripted
+//    endAnimation -- used ath the end of the game when a maze is solved
 
+// gamePlay -- this is the bodies of the event loops for user game control and screen display
 const gamePlay = {
   init: init,
 
+  // this method is the repeated command control loop.  It gets the commands from the user
+  //  acts on  them, and then updates the state of the player
   update(dt) {
     if (DEBUG) { statsUpdate.begin(); }
-    //camera = gameCameraNoAutoZoom;
+
     getCurrentCommands(dt, player, camera);
     actOnCurrentCommands(dt, player, camera);
     updatePlayerZoom(dt);
@@ -112,6 +264,8 @@ const gamePlay = {
     if (DEBUG) { statsUpdate.end(); }
   },
 
+  // this method is repeated for each frame displayed.  It draws all the screen
+  // components, manages the camera perspective.
   draw(dt) {
     if (DEBUG) { statsDraw.begin(); }
     clearCanvas();
@@ -128,6 +282,8 @@ const gamePlay = {
   }
 }
 
+// openAnimation -- this is the code used in the event loops when the opening
+// animation is running.
 const openAnimation = {
   animationState: 0,
   animationTimer: false,
@@ -136,12 +292,15 @@ const openAnimation = {
   update(dt) {
     if (DEBUG) { statsUpdate.begin(); }
     camera = animationCamera;
+    // we get commands, but don't act on them
+    // this allows any input to interrupt the opening animation
     getCurrentCommands(dt, player, camera);
     updatePlayerFromScript(dt);
     updatePlayerZoom(dt);
     updatePlayerMotionFromScript(dt);
     updateDebug();
-    if (DEBUG) { statsUpdate.end(); }
+    if (
+      DEBUG) { statsUpdate.end(); }
   },
   draw(dt) {
     if (DEBUG) { statsDraw.begin(); }
@@ -158,49 +317,63 @@ const openAnimation = {
   }
 }
 
+// the game begins with the opening animation
+// When any game state finishes, it is the current game state's responsilibity to set
+// the next state.
 var gameState = openAnimation;
 
-
+// Cameras
+//    gameCameraNoAutoZoom -- a camera that gives the use the control of the zoom level
+//    gameCameraWithAutoZoom -- the original camera that autamatically zoomed in and out
+//    animationCamera -- the camera used during the scripted animations
 var gameCameraNoAutoZoom = { name: 'game_no_auto_zoom', x: 0, y: 0, z: 1.0, zmin: 1.0, zmax: 1.0, referenceZ: false, zdelay: 0, zdelaymax: 500 };
 var gameCameraWithAutoZoom = { name: 'game_auto_zoom', x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
 var animationCamera = { name: 'animation', x: 0, y: 0, z: 0.75, zmin: 0.9, zmax: 5.0, zdelay: 0, zdelaymax: 500 };
 var camera = animationCamera;
 
+// player
 const player = {
+  // position related data
   x: 0,
   y: 0,
   x_history: [],
   y_history: [],
-  r: Math.PI * (3/2),
+  restoredX: 0,  // location of most recent jump to breadcrumb
+  restoredY: 0,  // location of most recent jump to breadcrumb
+  // an array of lists of multisegmented lines indicating where the player has been
+  used_paths: [],
+  // the most recent data as to where the player has been
+  current_path: [],
+
+  // perspective data
   forceZoomIn: false,
-  r_history: [],
+
+  // movement related data
+  r: Math.PI * (3/2),
   v: 0,
   maxSpeed: 130 / 1000,
   vibrating: 0,
   vibrateBaseLocation: [0,0],
+
+  // player game state information
   breadcrumb_stack: new Stack(),
   color: 4095,
   colorHintingTimer: false,
   colorHinting: true,
-  used_paths: [],
-  current_path: []
 };
+
+
 const updateTimer = { };
 const drawTimer = { };
 const debugIn = { tileGrid: false };
-const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '', gameState: '', lars_sez: '' };
+const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis1: '', gameState: '' };
 
 let gui, statsDraw, statsUpdate;
 
 const ctx = document.getElementById('viewport').getContext('2d');
 ctx.canvas.width = map.width;
 ctx.canvas.height = map.height;
-
-function getRandomInt(min, max) {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min)) + min;
-}
+ctx.globalCompositeOperation = 'mulitply';
 
 function load() {
   // HACK: Render the whole path map at original scale and grab image data
@@ -210,19 +383,13 @@ function load() {
   map.pathImg = new Image();
   map.pathImg.src = map.pathSrc;
 
-  map.solutionImg = new Image();
-  map.solutionImg.src = map.solutionSrc;
-
   map.tileCols = Math.ceil(map.width / map.tileWidth);
   map.tileRows = Math.ceil(map.height / map.tileHeight);
 
   const loadBaseMapImg = e => {
-    ctx.drawImage(map.solutionImg, 0, 0);
-    map.solutionData = ctx.getImageData(0, 0, map.width, map.height).data;
 
     ctx.drawImage(map.pathImg, 0, 0);
     map.pathData = ctx.getImageData(0, 0, map.width, map.height).data;
-
     map.pathImg.removeEventListener('load', loadBaseMapImg);
 
     init();
@@ -233,7 +400,6 @@ function load() {
 
 function init() {
   document.body.className = 'loaded';
-
   expandCanvas();
   window.addEventListener('resize', expandCanvas);
 
@@ -301,17 +467,8 @@ function expandCanvas() {
 function drawDebug(dt) {
 }
 
-function drawMazeOld(dt) {
-  ctx.drawImage(map.baseMapImg,
-    player.x - (ctx.canvas.width / 2 / camera.z),
-    player.y - (ctx.canvas.height / 2 / camera.z),
-    ctx.canvas.width / camera.z,
-    ctx.canvas.height / camera.z,
-    0, 0, ctx.canvas.width, ctx.canvas.height
-  );
-}
-
 function drawMaze(dt) {
+  ctx.globalCompositeOperation = 'source-over'
   // Find the rectangle of visible map
   const mapX = player.x - (ctx.canvas.width / 2 / camera.z);
   const mapY = player.y - (ctx.canvas.height / 2 / camera.z);
@@ -362,22 +519,6 @@ function drawMaze(dt) {
   }
 }
 
-function draw_a_path(a_path) {
-  if (a_path.length > 1) {
-    ctx.save();
-    ctx.globalCompositeOperation = "multiply";
-    ctx.beginPath();
-    ctx.lineWidth = "8";
-
-    ctx.moveTo(a_path[0][0], a_path[0][1]);
-    for (let j = 1; j < a_path.length; j++) {
-      ctx.lineTo(a_path[j][0], a_path[j][1]);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-}
-
 function drawArrows(dt) {
   ctx.save();
   ctx.lineWidth = "4";
@@ -401,42 +542,87 @@ function drawArrows(dt) {
   ctx.restore();
 }
 
+function draw_a_path(a_path) {
+  if (typeof a_path == "undefined") {
+    console.log('trouble');
+    return;
+  }
+  if (a_path.length > 1) {
+    ctx.beginPath();
+
+    ctx.moveTo(a_path[0], a_path[1]);
+    for (let j = 2; j < a_path.length; j+=2) {
+      ctx.lineTo(a_path[j], a_path[j+1]);
+    }
+    ctx.stroke();
+  }
+}
+
 function drawUsedPaths(dt) {
   ctx.save();
-  ctx.lineWidth = "4";
+
+  ctx.lineWidth = "8";
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.strokeStyle = map.solutionColor;
-  if (player.current_path.length > 1) {
-  let [last_x, last_y] = player.current_path[player.current_path.length - 1];
-    if (Math.abs(last_x - player.x) > 6 || Math.abs(last_y - player.y) > 6) {
-      player.current_path.push([player.x, player.y]);
-    }
-    draw_a_path(player.current_path);
-  } else {
-    player.current_path.push([player.x, player.y]);
+  ctx.globalCompositeOperation = 'color-burn';
+
+  // update used paths
+  let lastX = player.current_path[player.current_path.length - 2];
+  let lastY = player.current_path[player.current_path.length - 1];
+  if (Math.abs(lastX - player.x) > 6 || Math.abs(lastY - player.y) > 6) {
+    player.current_path.push(player.x);
+    player.current_path.push(player.y);
+  }
+  draw_a_path(player.current_path);
+
+  const mapX = player.x - (ctx.canvas.width / 2 / camera.z);
+  const mapY = player.y - (ctx.canvas.height / 2 / camera.z);
+  const mapW = ctx.canvas.width / camera.z;
+  const mapH = ctx.canvas.height / camera.z;
+
+  // Find the start/end indices for tiles in visible map
+  const rowStart = Math.floor(mapY / map.tileHeight) - 1;
+  const rowEnd = Math.ceil(rowStart + (mapH / map.tileHeight)) + 1;
+
+  const colStart = Math.floor(mapX / map.tileWidth) - 1;
+  const colEnd = Math.ceil(colStart + (mapW / map.tileWidth)) + 1;
+
+  // column
+  for (let i = colStart; i <= colEnd; i++) {
+    if (i >= 0 && i < map.numberOfTileColumns)
+      for (let j = rowStart; j <= rowEnd; j++)
+        if (j >= 0 && j < map.numberOfTileRows) {
+          let usedPathsForThisTile = player.used_paths[i][j];
+          for (let k = 0; k < usedPathsForThisTile.length; k++)
+            draw_a_path(usedPathsForThisTile[k]);
+        }
   }
 
-  for (let i = 0; i < player.used_paths.length; i++) {
-    draw_a_path(player.used_paths[i]);
-  }
-  if (player.current_path.length > 40) {
-    player.used_paths.push(player.current_path);
-    player.current_path = [[player.x, player.y]];
+  if (player.current_path.length > 60) {
+    let columnNumber = Math.trunc(player.current_path[0] / map.tileWidth);
+    let rowNumber = Math.trunc(player.current_path[1] / map.tileHeight);
+    player.used_paths[columnNumber][rowNumber].push(player.current_path);
+    player.current_path = [player.x, player.y];
   }
 
   ctx.restore();
 }
 
 function drawBreadCrumbs(dt) {
+  ctx.save();
+
+  ctx.strokeStyle = '#fff';
+  ctx.fillStyle = '#fff';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+
   for (let i = 0; i < player.breadcrumb_stack.stack.length; i++) {
     let [x, y] = player.breadcrumb_stack.stack[i];
-    ctx.strokeStyle = '#fff';
-    ctx.fillStyle = '#fff';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
     ctx.fillText(i.toString(), x, y);
-   }
+  }
+
+  ctx.restore();
 }
 
 function initPlayer() {
@@ -447,6 +633,7 @@ function initPlayer() {
   }
   player.x = map.startX;
   player.y = map.startY;
+  player.current_path = [player.x, player.y];
   player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
   player.v = 0;
   player.color = 4095;
@@ -457,15 +644,19 @@ function initPlayer() {
     { t: 0, delay: 600, startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000 }
    ]
   };
+  // create a big column ordered grid of lists that mirror the size and shape of the tile
+  // maps for use in saving sets of used paths.  This will allow optimization of drawing
+  // only the used paths that are actually in view
+  player.used_paths = [];
+  for (let i = 0; i < map.numberOfTileColumns; i++) {
+    player.used_paths.push([]); // the X dimension
+    for (let j = 0; j < map.numberOfTileRows; j++)
+      player.used_paths[i].push([]);  // the Y dimension
+  }
 }
 
-const slideAngles = [
-  0,
-  /*Math.PI * 1/6, -Math.PI * 1/6,
-  Math.PI * 1/4, -Math.PI * 1/4,
-  Math.PI * 1/3, -Math.PI * 1/3*/
-];
-
+// The openning animation is also a state system.  The states are numbered and can be advanced
+// either by this timer function or by directly changing the animation varible
 function incrementAnimationState() {
   if (openAnimation.animationTimer) {
     window.clearInterval(openAnimation.animationTimer);
@@ -484,6 +675,13 @@ function abortIntro() {
       window.clearInterval(openAnimation.animationTimer);
       openAnimation.animationTimer = false;
     }
+    if (player.colorHintingTimer) {
+      window.clearInterval(player.colorHintingTimer);
+      player.colorHintingTimer = false;
+      player.colorOverride = false;
+      player.color = 4094;
+    }
+    // jump to the last animation state if the user interrupts the animation
     openAnimation.animationState = 11;
   }
 }
@@ -493,8 +691,8 @@ function updatePlayerFromScript(dt) {
   abortIntro();
   if (openAnimation.animationState == 0) {
     player.forceZoomIn = true;
-    player.x = 5000;
-    player.y = 4000;
+    player.x = animationStartPoint[0];
+    player.y = animationStartPoint[1];
     if (!openAnimation.animationTimer) {
       openAnimation.animationTimer = window.setInterval(incrementAnimationState, 5000);
     }
@@ -546,7 +744,7 @@ function updatePlayerFromScript(dt) {
     }
     player.forceZoomIn = true;
     if (!openAnimation.animationTimer)
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
+      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 5000);
 
   } else if (animationState == 10) {
     player.x = map.startX;
@@ -641,7 +839,7 @@ function drawMessages(dt) {
     ctx.fillStyle = '#0f0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("You're going to start here...", map.startX, map.startY - 42);
+    ctx.fillText("You're going to start here...", map.startMessageBase[0], map.startMessageBase[1] - 42);
     ctx.restore();
 
   } else if (animationState == 5) {
@@ -650,7 +848,7 @@ function drawMessages(dt) {
     ctx.fillStyle = '#0f0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("The goal is to exit here.",  map.endX, map.endY - 52);
+    ctx.fillText("The goal is to exit here.",  map.endMessageBase[0], map.endMessageBase[1] - 52);
     ctx.restore();
 
   } else if (animationState == 6) {
@@ -659,7 +857,7 @@ function drawMessages(dt) {
     ctx.fillStyle = '#ff0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("You've only got an hour.", map.endX, map.endY - 52);
+    ctx.fillText("You've only got an hour.", map.endMessageBase[0], map.endMessageBase[1] - 52);
     ctx.restore();
 
   } else if (animationState == 8) {
@@ -668,8 +866,8 @@ function drawMessages(dt) {
     ctx.fillStyle = '#f00';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("If the cursor gradually turns", map.startX, map.startY - 62);
-    ctx.fillText("red, you're on the wrong path", map.startX, map.startY - 42);
+    ctx.fillText("If the cursor gradually turns", map.startMessageBase[0], map.startMessageBase[1] - 62);
+    ctx.fillText("red, you're on the wrong path", map.startMessageBase[0], map.startMessageBase[1] - 42);
     ctx.restore();
 
   } else if (animationState == 9) {
@@ -678,8 +876,9 @@ function drawMessages(dt) {
     ctx.fillStyle = '#ff0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("Use <backspace> to return", map.startX, map.startY - 62);
-    ctx.fillText("to a numbered breadcrumb", map.startX, map.startY - 42);
+    ctx.fillText("Use <bsp>, right mouse button, ", map.startMessageBase[0], map.startMessageBase[1] - 72);
+    ctx.fillText("2 finger tap, or blue button to return", map.startMessageBase[0], map.startMessageBase[1] - 57);
+    ctx.fillText("to a numbered breadcrumb", map.startMessageBase[0], map.startMessageBase[1] - 42);
     ctx.restore();
 
   } else if (animationState == 10) {
@@ -693,7 +892,6 @@ function drawMessages(dt) {
 
   }
 }
-
 
 function updatePlayerZoom(dt) {
   let zoomInDelta = 0;
@@ -771,7 +969,6 @@ function updatePlayerMotion(dt) {
     player.vibrating += 1;
     if (player.vibrating > 10) {
       player.vibrateBaseLocation = [tx, ty];
-
       return;
     }
     player.x = tx;
@@ -783,36 +980,39 @@ function updatePlayerMotion(dt) {
   player.y = ty;
   player.vibrating = 0;
 
-  debugOut.avg = getPixelAvgAt(player.x, player.y, map.pathData);
+  // drop breadcrumbs only at interections where the solution map has a red dot
+  if (pixelIsRedAt(tx, ty, map.pathData) && player.breadcrumb_stack.noCloser(tx, ty, 15, 8) && distanceFrom(tx, ty, player.restoredX, player.restoredY) > 5) {
+    player.breadcrumb_stack.push([tx, ty]);
+  }
+
+
 }
 
-function getPixelAt(x, y, pixelData) {
-  /*
-  const ox = (ctx.canvas.width / 2) - (player.x * camera.z);
-  const oy = (ctx.canvas.height / 2) - (player.y * camera.z);
-  return ctx.getImageData(
-    Math.ceil(ox + x * camera.z),
-    Math.ceil(oy + y * camera.z),
-    1, 1
-  ).data;
-  */
-  const pos = 4 * (Math.round(x) + (Math.round(y) * map.width));
-  return pixelData.slice(pos, pos + 4);
+function pixelIsRedAt(x, y) {
+  try {
+    return map.pathData[4 * (Math.round(x) + (Math.round(y) * map.width))] > 128;
+  } catch (err) {
+    return false;
+  }
 }
 
-function getPixelAvgAt(x, y, pixelData) {
-  const d = getPixelAt(x, y, pixelData);
-  return (d[0] + d[1] + d[2]) / 3;
+function pixelIsGreenAt(x, y) {
+  try {
+    return map.pathData[4 * (Math.round(x) + (Math.round(y) * map.width)) + 1] > 128;
+  } catch (err) {
+    return false;
+  }
 }
 
-function getPixelSumAt(x, y, pixelData) {
-  const d = getPixelAt(x, y, pixelData);
-  return d[0] + d[1] + d[2];
+function pixelIsBlueAt(x, y) {
+  try {
+    return map.pathData[4 * (Math.round(x) + (Math.round(y) * map.width)) + 2] > 128;
+  } catch (err) {
+    console.log(err);
+    return false;
+  }
 }
-
-function isPassableAt(x, y) {
-  return getPixelSumAt(x, y, map.pathData) > map.passableMin;
-}
+const isPassableAt = pixelIsBlueAt;
 
 function distanceFrom(x1, y1, x2, y2) {
   return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
@@ -863,11 +1063,6 @@ function suggestBetter(x, y) {
   let middleY =  Math.trunc((highY - lowY) / 2 + lowY);
   let betterX = xAxis[middleX][0];
   let betterY = yAxis[middleY][0];
-
-  if (lowY == -1 && lowX == -1 && highX == 9 && highY == 9 && player.breadcrumb_stack.noCloser(betterX, betterY, 50, 15)) {
-     player.breadcrumb_stack.push([betterX, betterY]);
-  }
-
   return [betterX, betterY];
 }
 
@@ -887,7 +1082,7 @@ function upgradeHintingColor() {
 }
 
 function drawPlayer(dt) {
-  let inSolutionPath = getPixelAvgAt(player.x, player.y, map.solutionData) != 0;
+  let inSolutionPath = pixelIsGreenAt(player.x, player.y);
 
   if (player.colorHinting && !player.colorHintingTimer && !inSolutionPath && !player.colorOverride) {
     // degrade the player color every 60 seconds with a timer
@@ -904,8 +1099,6 @@ function drawPlayer(dt) {
   let color_str = "#".concat(player.color.toString(16));
   ctx.strokeStyle = color_str;
   ctx.fillStyle = color_str;
-
-  //ctx.fillText(lars_sez + " " + camera.z.toString(), player.x, player.y - 10);
 
   var drawR = player.r;
 
@@ -997,7 +1190,6 @@ const directions = {
 // TOUCH
 // MOTION
 
-
 /*
 Each method of fetching data from the user has its own section below.  They are considered
 indepentently in turn.  Each section interprets its input type and translates into commands.
@@ -1073,7 +1265,6 @@ function createKeyboardCommands (dt, playerX, playerY, camera) {
     delete Input.keys[173]
   }
 
-
   // TODO: keyboard command for save
   // TODO: keyboard command for quit
 
@@ -1122,7 +1313,6 @@ function createMouseCommands (dt, playerX, playerY, camera) {
     MouseCommands.attention = true;
     Input.mouse.wheel = false;
   }
-
 
   // TODO: mouse command for autozoom
   // TODO: mouse command for save
@@ -1211,6 +1401,7 @@ function createGameControllerCommands (dt, playerX, playerY, camera) {
       GameControllerCommands.moveDirection = Math.atan2(Input.gamepad.axis1, Input.gamepad.axis0);
     }
   }
+
   // TODO: game controller command for save
   // TODO: game controller command for quit
 }
@@ -1303,8 +1494,7 @@ function createMovementCommands (dt, playerX, playerY, camera) {
 
 }
 
-
-// consolidate commands section
+// consolidated commands section
 
 function mergeCommands(candidate, target) {
   if (candidate.attention) {
@@ -1362,9 +1552,13 @@ function actOnCurrentCommands(dt, player, currentCamera) {
   }
   if (Commands.backup) {
     if (player.breadcrumb_stack.stack.length > 0) {
-      player.used_paths.push(player.current_path);
+      let columnNumber = Math.trunc(player.current_path[0] / map.tileWidth);
+      let rowNumber = Math.trunc(player.current_path[1] / map.tileHeight);
+      player.used_paths[columnNumber][rowNumber].push(player.current_path);
       [player.x, player.y] = player.breadcrumb_stack.pop();
-      player.current_path = [[player.x, player.y]];
+      player.current_path = [player.x, player.y];
+      player.restoredX = player.x;
+      player.restoredY = player.y;
     }
   }
   if (Commands.zoom && currentCamera == gameCameraNoAutoZoom) {
