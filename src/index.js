@@ -91,7 +91,7 @@ const greenMapBackwards = {
   tiles: greenMap.tiles,
 
   pathSrc: 'mazes/Firefox.green.png',
-  solutionColor: "#8f8",
+  solutionColor: "#0f0",
   pathData: [],
 
   startX: 3258, startY: 430,
@@ -153,7 +153,7 @@ const redMapBackwards = {
   tiles: greenMap.tiles,
 
   pathSrc: 'mazes/Firefox.red.png',
-  solutionColor: "#f99",
+  solutionColor: "#f00",
   pathData: greenMap.pathData,
 
   startX: 3228, startY: 428,
@@ -212,7 +212,7 @@ const blueMap = {
   tileWidth: greenMap.tileWidth, tileHeight: greenMap.tileHeight,
   width: greenMap.width, height: greenMap.height,
   numberOfTileRows: greenMap.numberOfTileRows,
-  numberOfTileColumns: greenMap.numberOfTileColumn,
+  numberOfTileColumns: greenMap.numberOfTileColumns,
   tiles: greenMap.tiles,
 
   pathSrc: 'mazes/Firefox.blue.png',
@@ -238,7 +238,7 @@ const blueMap = {
 
 // repeats in the possibleGames variable are to make some solutions rarer than others
 const possibleGames = [redMap, greenMap, redMap, greenMap, redMapBackwards, greenMapBackwards, violetMap, violetMap, blueMap];
-var map = possibleGames[getRandomInt(0, possibleGames.length - 1)];
+var map = possibleGames[getRandomInt(0, possibleGames.length)];
 const animationStartPoints = [[5000, 4000], [-1000, -1000], [0, 5000], [5000, -500]];
 const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartPoints.length)];
 
@@ -565,7 +565,7 @@ function drawUsedPaths(dt) {
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.strokeStyle = map.solutionColor;
-  ctx.globalCompositeOperation = 'color';
+  ctx.globalCompositeOperation = 'color-burn';
 
   // update used paths
   let lastX = player.current_path[player.current_path.length - 2];
