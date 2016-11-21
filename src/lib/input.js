@@ -11,6 +11,7 @@
       mousedown: this.handleMouseDown,
       mouseup: this.handleMouseUp,
       contextmenu: this.ignoreThisEvent,
+      scroll: this.ignoreThisEvent,
       wheel: this.handleWheel,
       keydown: this.handleKeyDown,
       keyup: this.handleKeyUp,

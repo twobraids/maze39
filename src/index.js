@@ -403,22 +403,25 @@ const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis
 
 let gui, statsDraw, statsUpdate;
 
+const loadingDiv = document.getElementById('loading');
+
 const theCanvas = document.getElementById('viewport');
 const ctx = theCanvas.getContext('2d');
-const loadingDiv = document.getElementById('loading');
+
+const offscreenCanvas = document.createElement("canvas");
+const offscreenContext = offscreenCanvas.getContext('2d');
 
 function switchToGamePlayMode() {
   window.scrollTo(0,0);
   loadingDiv.style.visibility = 'hidden';
+  let children = loadingDiv.children;
+  for (let i = 0; i < children.length; i++)
+    children[i].style.visibility = 'hidden';
+
+  theStartButton.style.visibility = 'hidden';
   theCanvas.style.visibility = "visible";
   init();
 }
-/*const theResumeButton = document.getElementById('theResumeButton');
-theResumeButton.onclick= function() {
-  loadingDiv.style.visiblity = 'hidden';
-  theCanvas.style.visibility = 'visible';
-}*/
-
 
 function load() {
   // HACK: Render the whole path map at original scale and grab image data
@@ -426,6 +429,10 @@ function load() {
   // way better than constant getImageData() calls
 
   const activateStartButton = e => {
+    offscreenCanvas.width = map.width;
+    offscreenCanvas.height = map.height;
+    offscreenContext.drawImage(map.pathImg, 0, 0);
+    map.pathData = offscreenContext.getImageData(0, 0, map.width, map.height).data;
     const theStartButton = document.getElementById('theStartButton');
     theStartButton.onclick = switchToGamePlayMode;
     theStartButton.style.visibility = "visible";
@@ -436,7 +443,6 @@ function load() {
   // as soon as the path image is loaded, show the start button
   map.pathImg.addEventListener("load", activateStartButton);
   map.pathImg.src = map.pathSrc;
-
   map.tileCols = Math.ceil(map.width / map.tileWidth);
   map.tileRows = Math.ceil(map.height / map.tileHeight);
 
@@ -446,12 +452,10 @@ function init() {
   // setting the canvas width before the play has hit the start button makes the
   // start page text very very small in the FF for iOS.  Not enlarging the canvas
   // until the game starts, solves that problem.
+
   ctx.canvas.width = map.width;
   ctx.canvas.height = map.height;
   ctx.globalCompositeOperation = 'mulitply';
-  ctx.drawImage(map.pathImg, 0, 0);
-
-  map.pathData = ctx.getImageData(0, 0, map.width, map.height).data;
 
   expandCanvas();
   window.addEventListener('resize', expandCanvas);
@@ -500,8 +504,7 @@ function handleTimer(type, now, timer, fixed, cb) {
 }
 
 function clearCanvas(dt) {
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
 function followAndZoom(dt) {
@@ -601,13 +604,11 @@ function draw_a_path(a_path) {
     return;
   }
   if (a_path.length > 1) {
-    ctx.beginPath();
 
     ctx.moveTo(a_path[0], a_path[1]);
     for (let j = 2; j < a_path.length; j+=2) {
       ctx.lineTo(a_path[j], a_path[j+1]);
     }
-    ctx.stroke();
   }
 }
 
@@ -624,9 +625,11 @@ function drawUsedPaths(dt) {
   let lastX = player.current_path[player.current_path.length - 2];
   let lastY = player.current_path[player.current_path.length - 1];
   if (Math.abs(lastX - player.x) > 6 || Math.abs(lastY - player.y) > 6) {
-    player.current_path.push(player.x);
-    player.current_path.push(player.y);
+    player.current_path.push(Math.round(player.x));
+    player.current_path.push(Math.round(player.y));
   }
+
+  ctx.beginPath();
   draw_a_path(player.current_path);
 
   const mapX = player.x - (ctx.canvas.width / 2 / camera.z);
@@ -651,6 +654,7 @@ function drawUsedPaths(dt) {
             draw_a_path(usedPathsForThisTile[k]);
         }
   }
+  ctx.stroke();
 
   if (player.current_path.length > 60) {
     let columnNumber = Math.trunc(player.current_path[0] / map.tileWidth);
@@ -1024,7 +1028,7 @@ function updatePlayerMotion(dt) {
   if (!isPassableAt(tx, ty)) return;
 
   if (breadcrumbFound)
-    player.breadcrumb_stack.push([tx, ty]);
+    player.breadcrumb_stack.push([Math.round(tx), Math.round(ty)]);
 
   // stop vibration
   let vdx = Math.abs(player.x - tx);
@@ -1216,11 +1220,14 @@ function drawPlayer(dt) {
 
   var drawR = player.r;
 
+  let px = Math.round(player.x);
+  let py = Math.round(player.y);
+
   if (player.v != 0) {
     // Try coming up with a short travel history segment for a
     // smoothed avatar rotation
-    player.x_history.unshift(player.x);
-    player.y_history.unshift(player.y);
+    player.x_history.unshift(px);
+    player.y_history.unshift(py);
     if (player.x_history.length > 20) {
       player.x_history.pop();
     }
@@ -1240,7 +1247,7 @@ function drawPlayer(dt) {
 
   // Draw a little arrowhead avatar
   ctx.save();
-  ctx.translate(player.x, player.y);
+  ctx.translate(px, py);
   ctx.rotate(drawR);
   ctx.lineWidth = '1.5';
   ctx.lineJoin = 'round';
@@ -1267,7 +1274,7 @@ function drawPlayer(dt) {
       ctx.beginPath();
       ctx.lineWidth = 2.5;
       ctx.globalAlpha = lerp(ring.startO, ring.endO, ring.t / ring.endT);
-      ctx.arc(player.x, player.y,
+      ctx.arc(px, py,
               lerp(ring.startR, ring.endR, ring.t / ring.endT),
               0, PI2);
       ctx.stroke();
@@ -1575,7 +1582,7 @@ function createTouchCommands (dt, playerX, playerY, camera) {
   // kill the ended touch trackers
   let n = 0;
   for (let i = 0; i < touches.length; i++) {
-    if (Input.touchEventTracker[touches[i]].ended) {
+    if (Input.touchEventTracker[touches[i]].ended || (timestamp - Input.touchEventTracker[touches[i]].timestamp) > 90000 ) {
       delete Input.touchEventTracker[touches[i]];
     }
   }
