@@ -251,6 +251,7 @@ const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartP
 const gamePlay = {
   init: init,
 
+  playerPositionHeuristic(singleAxisPosition) { return Math.round(singleAxisPosition); },
   // this method is the repeated command control loop.  It gets the commands from the user
   //  acts on  them, and then updates the state of the player
   update(dt) {
@@ -288,6 +289,7 @@ const openAnimation = {
   animationState: 0,
   animationTimer: false,
 
+  playerPositionHeuristic(singleAxisPosition) { return singleAxisPosition; },
   init: init,
   update(dt) {
     if (DEBUG) { statsUpdate.begin(); }
@@ -321,6 +323,7 @@ const endAnimation = {
   animationState: 100,
   animationTimer: false,
 
+  playerPositionHeuristic(singleAxisPosition) { return singleAxisPosition; },
   init: init,
   update(dt) {
     if (DEBUG) { statsUpdate.begin(); }
@@ -1256,8 +1259,8 @@ function drawPlayer(dt) {
 
   var drawR = player.r;
 
-  let px = Math.round(player.x);
-  let py = Math.round(player.y);
+  let px = gameState.playerPositionHeuristic(player.x);
+  let py = gameState.playerPositionHeuristic(player.y);
 
   if (player.v != 0) {
     // Try coming up with a short travel history segment for a
