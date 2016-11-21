@@ -237,7 +237,7 @@ const blueMap = {
 };
 
 // repeats in the possibleGames variable are to make some solutions rarer than others
-const possibleGames = [redMap, greenMap, redMap, greenMap, redMapBackwards, greenMapBackwards, violetMap, violetMap, blueMap];
+const possibleGames = [greenMap, greenMap, greenMap, greenMap, redMap, redMap, redMap, redMapBackwards, greenMapBackwards, blueMap, blueMap, violetMap ];
 var map = possibleGames[getRandomInt(0, possibleGames.length)];
 const animationStartPoints = [[5000, 4000], [-1000, -1000], [0, 5000], [5000, -500]];
 const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartPoints.length)];
@@ -881,11 +881,13 @@ function drawMessages(dt) {
     ctx.fillStyle = '#0bf';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("The Amazing Firefox", player.x, player.y - 20);
+    ctx.fillText("The Firefox Maze", player.x, player.y - 20);
     ctx.strokeStyle = '#fb0';
     ctx.fillStyle = '#fb0';
     ctx.fillText("by   Les Orchard   &   K Lars Lohn", player.x, player.y + 20);
     ctx.fillText("Art by K Lars Lohn", player.x, player.y + 35);
+    ctx.fillText("Firefox® by the Mozilla Foundation", player.x, player.y + 50);
+    ctx.fillText("(used by an employee with tacit assent)", player.x, player.y + 65);
     ctx.restore();
   } else if (animationState == 3) {
     ctx.save();
@@ -986,6 +988,8 @@ function updatePlayerMotion(dt) {
     return;
   }
 
+  let breadcrumbFound = false;
+
   //prevent overrun
   dx = tx - px;
   dy = ty - py;
@@ -1003,6 +1007,10 @@ function updatePlayerMotion(dt) {
     if (isPassableAt(testX, testY)) {
       overrunX = testX;
       overrunY = testY;
+      if (pixelIsRedAt(testX, testY)) {
+        breadcrumbFound = true;
+        markBreadcrumbAsUsed(testX, testY);
+     }
 
     } else {
       tx = overrunX;
@@ -1014,6 +1022,9 @@ function updatePlayerMotion(dt) {
 
   [tx, ty] = suggestBetter(tx, ty);
   if (!isPassableAt(tx, ty)) return;
+
+  if (breadcrumbFound)
+    player.breadcrumb_stack.push([tx, ty]);
 
   // stop vibration
   let vdx = Math.abs(player.x - tx);
@@ -1033,12 +1044,11 @@ function updatePlayerMotion(dt) {
   player.y = ty;
   player.vibrating = 0;
 
-  // drop breadcrumbs only at interections where the solution map has a red dot
-  if (pixelIsRedAt(tx, ty, map.pathData) && player.breadcrumb_stack.noCloser(tx, ty, 15, 8) && distanceFrom(tx, ty, player.restoredX, player.restoredY) > 5) {
-    player.breadcrumb_stack.push([tx, ty]);
-  }
 
+}
 
+function redPixel(x, y) {
+  return map.pathData[4 * (Math.round(x) + (Math.round(y) * map.width))]
 }
 
 function pixelIsRedAt(x, y) {
@@ -1048,6 +1058,57 @@ function pixelIsRedAt(x, y) {
     return false;
   }
 }
+
+function floodPixelData(x, y, isOrignalValueFn, newValue) {
+  let workQueueX = [];
+  let workQueueY = [];
+  workQueueX.push(x);
+  workQueueY.push(y);
+  while (workQueueX.length) {
+    let testX = workQueueX.pop();
+    let testY = workQueueY.pop();
+    let position = 4 * (Math.round(testX) + (Math.round(testY) * map.width));
+    if (isOrignalValueFn(map.pathData[position])) {
+      // this routine will inefficeintly put pixels already tested into the
+      // queue - however fixing that makes the algorithm significantly more
+      // complicated
+
+      map.pathData[position] = newValue;
+      workQueueX.push(testX + 1);
+      workQueueY.push(testY + 1);
+
+      workQueueX.push(testX + 1);
+      workQueueY.push(testY);
+
+      workQueueX.push(testX + 1);
+      workQueueY.push(testY - 1);
+
+      workQueueX.push(testX);
+      workQueueY.push(testY + 1);
+
+      workQueueX.push(testX + 1);
+      workQueueY.push(testY - 1);
+
+      workQueueX.push(testX - 1);
+      workQueueY.push(testY + 1);
+
+      workQueueX.push(testX - 1);
+      workQueueY.push(testY);
+
+      workQueueX.push(testX - 1);
+      workQueueY.push(testY - 1);
+    }
+  }
+}
+
+function markBreadcrumbAsUsed(x, y) {
+  floodPixelData(x, y, v => v > 128, 100)
+}
+
+function markBreadcrumbAsAvailable(x, y) {
+  floodPixelData(x, y, v => v == 100, 255)
+}
+
 
 function pixelIsGreenAt(x, y) {
   try {
@@ -1609,6 +1670,7 @@ function actOnCurrentCommands(dt, player, currentCamera) {
       let rowNumber = Math.trunc(player.current_path[1] / map.tileHeight);
       player.used_paths[columnNumber][rowNumber].push(player.current_path);
       [player.x, player.y] = player.breadcrumb_stack.pop();
+      markBreadcrumbAsAvailable(player.x, player.y);
       player.current_path = [player.x, player.y];
       player.restoredX = player.x;
       player.restoredY = player.y;
