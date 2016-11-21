@@ -5,7 +5,10 @@
   mouse: { x: 0, y: 0, down: false, wheel: false },
   touch: { active: false, x: 0, y: 0 },
 
+  boundWindowEvents: {},
+
   init() {
+    console.log('Input.init');
     const windowEvents = {
       mousemove: this.handleMouseMove,
       mousedown: this.handleMouseDown,
@@ -20,11 +23,28 @@
       touchend: this.handleTouchEnd
     };
     Object.keys(windowEvents)
-      .forEach(k => window.addEventListener(k, windowEvents[k].bind(this)));
+      .forEach(k => {
+        this.boundWindowEvents[k] = windowEvents[k].bind(this);
+        window.addEventListener(k, this.boundWindowEvents[k])
+      });
+  },
+
+  un_init() {
+    try {
+      Object.keys(this.boundWindowEvents)
+        .forEach(k => {
+          window.removeEventListener(k, this.boundWindowEvents[k]);
+          console.log('allegedly removed ' + k + ' ' + this.boundWindowEvents[k].name);
+        });
+      this.touchEventTracker = {};
+    } catch (err) {
+      console.log(err);
+    }
   },
 
   handleKeyDown(ev) {
     this.keys[ev.keyCode] = true;
+    console.log(ev.keyCode);
     ev.preventDefault();
   },
 

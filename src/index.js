@@ -403,13 +403,14 @@ const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis
 
 let gui, statsDraw, statsUpdate;
 
-const loadingDiv = document.getElementById('loading');
-
 const theCanvas = document.getElementById('viewport');
 const ctx = theCanvas.getContext('2d');
-
 const offscreenCanvas = document.createElement("canvas");
 const offscreenContext = offscreenCanvas.getContext('2d');
+const loadingDiv = document.getElementById('explanation');
+const theStartButton = document.getElementById('theStartButton');
+const theResumeButton = document.getElementById('theResumeButton');
+const theErrorDiv = document.getElementById('errors');
 
 function switchToGamePlayMode() {
   window.scrollTo(0,0);
@@ -419,9 +420,43 @@ function switchToGamePlayMode() {
     children[i].style.visibility = 'hidden';
 
   theStartButton.style.visibility = 'hidden';
+  theResumeButton.style.visibility = 'hidden';
   theCanvas.style.visibility = "visible";
   init();
 }
+
+function switchToPauseMode() {
+  // restore window scroll behavior
+  loadingDiv.style.visiblity = 'visible';
+  let children = loadingDiv.children;
+  for (let i = 0; i < children.length; i++)
+    children[i].style.visibility = 'visible';
+
+  theCanvas.style.visibility = 'hidden';
+  Input.un_init();
+  theStartButton.style.visibility = 'visible';
+  theResumeButton.style.display = 'inline';
+  theResumeButton.style.visibility = 'visible';
+}
+
+function switchToResumeMode() {
+  window.scrollTo(0,0);
+  //disable window scroll behavior
+  loadingDiv.style.visiblity = 'hidden';
+  let children = loadingDiv.children;
+  for (let i = 0; i < children.length; i++)
+    children[i].style.visibility = 'hidden';
+  theStartButton.style.visibility = 'hidden';
+  theResumeButton.style.visibility = 'hidden';
+  theCanvas.style.visibility = 'visible';
+  Input.init();
+
+}
+
+theResumeButton.onclick= function() {
+  switchToResumeMode();
+}
+
 
 function load() {
   // HACK: Render the whole path map at original scale and grab image data
@@ -690,6 +725,7 @@ function initPlayer() {
   }
   player.x = map.startX;
   player.y = map.startY;
+  player.breadcrumb_stack = new Stack();
   player.current_path = [player.x, player.y];
   player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
   player.v = 0;
@@ -1328,6 +1364,7 @@ const KeyboardCommands = {
   backup: false,
   zoom: false,
   auto_zoom: false,
+  pause: false,
   save: false,
   quit: false,
 };
@@ -1339,6 +1376,7 @@ function createKeyboardCommands (dt, playerX, playerY, camera) {
   KeyboardCommands.backup = false;
   KeyboardCommands.zoom = false;
   KeyboardCommands.autozoom = false;
+  KeyboardCommands.pause = false;
   KeyboardCommands.save = false;
 
   // Query cursor keys & WASD
@@ -1386,6 +1424,12 @@ function createKeyboardCommands (dt, playerX, playerY, camera) {
     delete Input.keys[173]
   }
 
+  if (Input.keys[80]) {  // - for pause
+    KeyboardCommands.attention = true;
+    KeyboardCommands.pause = true;
+    delete Input.keys[80]
+  }
+
   // TODO: keyboard command for save
   // TODO: keyboard command for quit
 
@@ -1401,6 +1445,7 @@ const MouseCommands = {
   backup: false,
   zoom: false,
   auto_zoom: false,
+  pause: false,
   save: false,
   quit: false,
 };
@@ -1412,8 +1457,10 @@ function createMouseCommands (dt, playerX, playerY, camera) {
   MouseCommands.backup = false;
   MouseCommands.zoom = false;
   MouseCommands.auto_zoom = false;
+  MouseCommands.pause = false;
 
-  if (Input.mouse.down === 0) {  // left mouse for move
+  if (Input.mouse.down === 0) {
+    // left mouse for move
     const mx = playerX - (ctx.canvas.width / 2 / camera.z) + (Input.mouse.x / camera.z);
     const my = playerY - (ctx.canvas.height / 2 / camera.z) + (Input.mouse.y / camera.z);
     let distance = distanceFrom(playerX, playerY, mx, my);
@@ -1421,21 +1468,24 @@ function createMouseCommands (dt, playerX, playerY, camera) {
     MouseCommands.moveSpeedFactor = distance / 40;
     MouseCommands.moveDirection = Math.atan2(my - playerY, mx - playerX);
     MouseCommands.attention = true;
-  } else if (Input.mouse.down == 2) {  // right mouse for backup
+  } else if (Input.mouse.down == 2) {
+    // right mouse for backup
     MouseCommands.backup = true;
     Input.mouse.down = false;  // kill repeats
     MouseCommands.attention = true;
-  } else if (Input.mouse.down == 1) {   // middle mouse for autozoom
+  } else if (Input.mouse.down == 1) {
+    // middle mouse for autozoom
     MouseCommands.auto_zoom = true;
     Input.mouse.down = false;  // kill repeats
     MouseCommands.attention = true;
-  } else if (Input.mouse.wheel) {  // wheel for zoom
+  } else if (Input.mouse.wheel) {
+    // wheel for zoom
     MouseCommands.zoom = Input.mouse.wheel / 10.0;
     MouseCommands.attention = true;
     Input.mouse.wheel = false;
   }
 
-  // TODO: mouse command for autozoom
+  // TODO: mouse command for pause
   // TODO: mouse command for save
   // TODO: mouse command for quit
 
@@ -1451,6 +1501,7 @@ const GameControllerCommands = {
   backup: false,
   zoom: false,
   auto_zoom: false,
+  pause: false,
   save: false,
   quit: false,
 };
@@ -1462,6 +1513,7 @@ function createGameControllerCommands (dt, playerX, playerY, camera) {
   GameControllerCommands.backup = false;
   GameControllerCommands.zoom = false;
   GameControllerCommands.auto_zoom = false;
+  GameControllerCommands.pause = false;
 
   if (Object.keys(Input.gamepad).length) GameControllerCommands.attention = true;
 
@@ -1479,7 +1531,8 @@ function createGameControllerCommands (dt, playerX, playerY, camera) {
     GameControllerCommands.moveDirection = false;
     GameControllerCommands.moveSpeedFactor = 0;
   }
-  if (Input.gamepad.button6 || Input.gamepad.button2) {
+  if (Input.gamepad.button2) {
+    // backup
     if (typeof Input.gamepad.backup == "undefined") {
       Input.gamepad.backup = true;
       GameControllerCommands.backup = true;
@@ -1488,6 +1541,7 @@ function createGameControllerCommands (dt, playerX, playerY, camera) {
     delete Input.gamepad.backup;
 
   if (Input.gamepad.button3) {
+    // auto-zoom
     if (typeof Input.gamepad.auto_zoom == "undefined") {
       Input.gamepad.auto_zoom = true;
       GameControllerCommands.auto_zoom = true;
@@ -1495,7 +1549,8 @@ function createGameControllerCommands (dt, playerX, playerY, camera) {
   } else if (typeof Input.gamepad.auto_zoom != "undefined")
     delete Input.gamepad.auto_zoom;
 
-  if (Input.gamepad.button0) {  // green button 0 for zoom in
+  if (Input.gamepad.button0) {
+    // green button 0 for zoom in
     if (typeof Input.gamepad.zoom == "undefined") {
       Input.gamepad.zoom = true;
       GameControllerCommands.zoom = 0.1;
@@ -1503,13 +1558,23 @@ function createGameControllerCommands (dt, playerX, playerY, camera) {
   } else if (typeof Input.gamepad.zoom != "undefined")
     delete Input.gamepad.zoom;
 
-  if (Input.gamepad.button1) {  // red button 1 for zoom in
+  if (Input.gamepad.button1) {
+    // red button 1 for zoom in
     if (typeof Input.gamepad.zoom == "undefined") {
       Input.gamepad.zoom = true;
       GameControllerCommands.zoom = -0.1;
     }
   } else if (typeof Input.gamepad.zoom != "undefined")
     delete Input.gamepad.zoom;
+
+  if (Input.gamepad.button6) {
+    // back button 6 for pause
+    if (typeof Input.gamepad.pause == "undefined") {
+      Input.gamepad.pause = true;
+      GameControllerCommands.pause = true;
+    }
+  } else if (typeof Input.gamepad.pause != "undefined")
+    delete Input.gamepad.pause;
 
 
   if (typeof(Input.gamepad.axis0) != 'undefined' && typeof(Input.gamepad.axis1) != 'undefined') {
@@ -1538,6 +1603,7 @@ const TouchCommands = {
   backup: false,
   zoom: false,
   auto_zoom: false,
+  pause: false,
   save: false,
   quit: false,
 };
@@ -1549,9 +1615,11 @@ function createTouchCommands (dt, playerX, playerY, camera) {
   TouchCommands.backup = false;
   TouchCommands.zoom = false;
   TouchCommands.auto_zoom = false;
+  TouchCommands.pause = false;
 
   let timestamp = Date.now();
   let touches = Object.keys(Input.touchEventTracker);
+  // one finger section
   if (touches.length == 1) {  // move command
     const mx = playerX - (ctx.canvas.width / 2 / camera.z) + (Input.touchEventTracker[touches[0]].x / camera.z);
     const my = playerY - (ctx.canvas.height / 2 / camera.z) + (Input.touchEventTracker[touches[0]].y / camera.z);
@@ -1561,20 +1629,36 @@ function createTouchCommands (dt, playerX, playerY, camera) {
     TouchCommands.moveSpeedFactor = distance / 40;
     TouchCommands.moveDirection = Math.atan2(my - playerY, mx - playerX);
 
-  } else if (touches.length == 2) { // zoom or backup command
+  // two finger section
+  } else if (touches.length == 2) {
+    // zoom or backup command
     TouchCommands.attention = true;
     let first = Input.touchEventTracker[touches[0]];
     let second = Input.touchEventTracker[touches[1]];
-    let changeInDistanceFromStart = distanceFrom(first.x, first.y, second.x, second.y) - distanceFrom(first.xStart, first.yStart, second.xStart, second.yStart);
-    if (Math.abs(changeInDistanceFromStart) > 10) {
-      TouchCommands.zoom = changeInDistanceFromStart / 500; // mostly normalized to 0.0 to 1.0
+    let changeInRelativeDistanceBetweenFingers = distanceFrom(first.x, first.y, second.x, second.y) - distanceFrom(first.xStart, first.yStart, second.xStart, second.yStart);
+    let changeInXPositionOfFirstFinger = distanceFrom(first.x, 0, first.xStart, 0);
+    let changeInXPositionOfSecondFinger = distanceFrom(second.x, 0, second.xStart, 0);
+    let changeInYPositionOfFirstFinger = distanceFrom(0, first.y, 0, first.yStart);
+    let changeInYPositionOfSecondFinger = distanceFrom(0, second.y, 0, second.yStart);
+    if (Math.abs(changeInRelativeDistanceBetweenFingers) > 20) {
+      // pinch for zoom
+      TouchCommands.zoom = changeInRelativeDistanceBetweenFingers / 500; // mostly normalized to 0.0 to 1.0
       if (TouchCommands.zoom > 1.2) TouchCommands.zoom = 1.2;
     }
-    if (first.ended || second.ended) // it was a 2 finger tap
-      if (timestamp - first.timestamp < 1000 && Math.abs(changeInDistanceFromStart) < 10) {
+    if (changeInXPositionOfFirstFinger > 30 && changeInXPositionOfSecondFinger > 30
+      && Math.abs(changeInYPositionOfFirstFinger) < 15 && Math.abs(changeInYPositionOfSecondFinger) < 15) {
+      // left swipe for pause
+      TouchCommands.pause = true;
+    }
+    if (first.ended || second.ended)
+      // tap for backup
+      if (timestamp - first.timestamp < 1000 && Math.abs(changeInRelativeDistanceBetweenFingers) < 15) {
         TouchCommands.backup = true;
       }
-  } else if (touches.length == 3) {  // auto_zoom command
+
+  // 3 finger section
+  } else if (touches.length == 3) {
+    // auto_zoom command
     TouchCommands.attention = true;
     TouchCommands.auto_zoom = true;
   }
@@ -1601,6 +1685,7 @@ const MovementCommands = {
   backup: false,
   zoom: false,
   auto_zoom: false,
+  pause: false,
   save: false,
   quit: false,
 };
@@ -1625,6 +1710,7 @@ function mergeCommands(candidate, target) {
     target.backup = candidate.backup ? candidate.backup : target.backup;
     target.auto_zoom = candidate.auto_zoom ? candidate.auto_zoom : target.auto_zoom;
     target.zoom = candidate.zoom ? candidate.zoom : target.zoom;
+    target.pause = candidate.pause ? candidate.pause : target.pause;
     target.save = candidate.save ? candidate.save : target.save;
     target.quit = candidate.quit ? candidate.quit : target.quit;
   }
@@ -1640,6 +1726,7 @@ var Commands = {
   backup: false,
   zoom: false,
   auto_zoom: false,
+  pause: false,
   save: false,
   quit: false,
 };
@@ -1652,6 +1739,7 @@ function getCurrentCommands(dt, player, currentCamera) {
   Commands.backup = false;
   Commands.zoom = false;
   Commands.auto_zoom = false;
+  Commands.pause = false;
   Commands.save = false;
   Commands.quit = false;
 
@@ -1665,12 +1753,14 @@ function playerWantsAttention() {
 }
 
 function actOnCurrentCommands(dt, player, currentCamera) {
+
   if (Commands.moveSpeedFactor) {
     player.v = player.maxSpeed * Commands.moveSpeedFactor;
     player.r = Commands.moveDirection;
   } else {
     player.v = 0;
   }
+
   if (Commands.backup) {
     if (player.breadcrumb_stack.stack.length > 0) {
       let columnNumber = Math.trunc(player.current_path[0] / map.tileWidth);
@@ -1683,6 +1773,7 @@ function actOnCurrentCommands(dt, player, currentCamera) {
       player.restoredY = player.y;
     }
   }
+
   if (Commands.zoom && currentCamera == gameCameraNoAutoZoom) {
     try {
       if (currentCamera.referenceZ == false)   // == false because must disambiguate from case 0
@@ -1699,10 +1790,17 @@ function actOnCurrentCommands(dt, player, currentCamera) {
     }
   } else
     camera.referenceZ = false;
+
   if (Commands.auto_zoom) {
     camera = (camera == gameCameraNoAutoZoom) ? gameCameraWithAutoZoom : gameCameraNoAutoZoom;
     currentCamera = camera;
   }
+
+  if (Commands.pause) {
+    console.log('PAUSE');
+    switchToPauseMode();
+  }
+
 }
 
 

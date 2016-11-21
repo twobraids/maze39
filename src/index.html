@@ -11,8 +11,10 @@
       p { margin-bottom: 0.5em; }
       #headerImage { width: 100%; }
       #explanation { display: block; position: absolute; width: 100%; }
+      #buttons { text-align: center; }
       #theStartButton { text-align: center; color: aqua; font-size: large; visibility: hidden }
-      #theResumeButton { text-align: center; color: aqua; font-size: large; visibility: hidden }
+      #theResumeButton { text-align: center; color: orange; font-size: large; visibility: hidden; dispaly: none }
+      #errors { text-align: center; color: red; font-size: large; visibility: hidden }
       .listItem { font-weight:bold ;}
       .boxed {
         display: block;
@@ -26,7 +28,11 @@
       .intro { text-align: center; }
       .method { border: 1em darkgray solid; width: 80%; padding: 1.5em; margin-bottom: 0.5em; }
       .methods-section { column-count: 2; column-width: 40%; -moz-column-count: 2; -webkit-column-count: 2;}
-      #viewport { display: block; visibility: hidden; position: absolute }
+      #viewport {
+        display: block;
+        visibility: hidden;
+        position: absolute
+      }
       #debugContainer {
         display: none;
         z-index: 100;
@@ -51,8 +57,7 @@
           shape of the Firefox logo. As an image on a screen, however, there was no easy way to solve it.  This year,
           in cahoots with Les Orchard, it's a Web app.</p>
       </div>
-      <div id="theStartButton">START THE GAME</div>
-      <!-- <div id="theResumeButton">RESUME THE GAME</div> -->
+      <p id="buttons"><span id="theStartButton">START NEW GAME</span> <span id="theResumeButton">RESUME THE GAME</span></p>
       <div class="howto boxed extra-to-hide">
         <h1>How to Play</h1>
         <p>The objective is to move your player from the maze start point through to the end. Once at the end,
@@ -82,7 +87,7 @@
               <li><span class="listItem">triple finger tap</span>: toggle between Manual Zoom and Automatic Zoom</li>
               <li><span class="listItem">pinch to zoom</span>: when in Manual Zoom mode, the standard pinch to zoom method will move your perspective in
                 and out</li>
-              <!-- <li><span class="listItem">two finger swipe left</span>: jump back to this screen</li> -->
+              <li><span class="listItem">two finger swipe left</span>: jump back to this screen, where you may resume or start over</li>
             </ul>
           </div>
           <div class="method extra-to-hide"><h2>With a Game Controller</h2>
@@ -91,10 +96,11 @@
             <ul>
               <li><span class="listItem">arrow buttons</span>: these will move the game cursor in the direction indicated</li>
               <li><span class="listItem">joy stick</span>: this is another way to move the game cursor</li>
-              <li><span class="listItem">back button / Blue button / X button</span>: move back through the numbered breadcrumbs</li>
+              <li><span class="listItem">blue button / X button</span>: move back through the numbered breadcrumbs</li>
               <li><span class="listItem">yellow button / Y button</span>: toggle between Manual Zoom and Automatic Zoom</li>
               <li><span class="listItem">green button / A button</span>: when in Manual Zoom mode, this button zooms the view closer</li>
               <li><span class="listItem">red button / B button</span>: when in Manual Zoom mode, this button zoom the view outward</li>
+              <li><span class="listItem">back button</span>: return to this screen, where you may resume or start over</li>
             </ul>
           </div>
           <div class="method extra-to-hide"><h2>With a Mouse</h2>
@@ -119,7 +125,7 @@
             <li><span class="listItem">=/+</span>: this key (without regard to shift state) will zoom the display in closer</li>
             <li><span class="listItem">-</span>: this key will zoom outward for a higher level view</li>
             <li><span class="listItem">Z</span>: this toggles between the Manual Zoom and Auto Zoom modes</li>
-            <!-- <li><span class="listItem">TAB</span>: jump back to this screen to review the commands. You can resume the game from there.</li> -->
+            <li><span class="listItem">P</span>: jump back to this screen, where you may resume or start over</li>
           </ul>
         </div>
         </div>
