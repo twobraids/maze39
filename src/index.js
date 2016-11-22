@@ -242,7 +242,8 @@ const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartP
 
 // gamePlay -- the event loops for user game control and screen display
 const gamePlay = {
-  inimationState: false,
+  animationState: false,
+  do_redraw: false,
 
   // it is more efficient to use exact integer pixel positions when drawing
   // however, that can make the player position appear to be shaky.  This is
@@ -271,17 +272,22 @@ const gamePlay = {
   // this is the body of the draw event loop - it is run once for each frame displayed
   draw(dt) {
     if (DEBUG) { statsDraw.begin(); }
-    clearCanvas();
-    ctx.save();
-    drawMaze(dt);
-    followAndZoom(dt);
-    drawArrows(dt);
-    drawUsedPaths(dt);
-    drawBreadCrumbs(dt);
-    drawPlayer(dt);
-    ctx.restore();
-    drawDebug(dt);
-    if (DEBUG) { statsDraw.end(); }
+    if (this.do_redraw) {
+      clearCanvas();
+      ctx.save();
+      drawMaze(dt);
+      followAndZoom(dt);
+      drawArrows(dt);
+      drawUsedPaths(dt);
+      drawBreadCrumbs(dt);
+      drawPlayer(dt);
+      ctx.restore();
+      drawDebug(dt);
+      if (DEBUG) {
+        statsDraw.end();
+      }
+    }
+    this.do_redraw = false;
   },
 
 };
@@ -291,6 +297,7 @@ const gamePlay = {
 const openAnimation = {
   animationState: "open_credits",
   animationTimer: false,
+  do_redraw: true,
 
   // when the player aborts an animation, the animation must shutdown in an
   // orderly manner.  This constant identifies the shutdown state to jump to
@@ -315,6 +322,7 @@ const openAnimation = {
     // we get commands, but don't act on them
     // this allows any input to interrupt the opening animation
     getCurrentCommands(dt, player, camera);
+    updatePlayerZoom(dt);
     updatePlayerFromScript(dt);
     updateDebug();
     if (
@@ -324,17 +332,21 @@ const openAnimation = {
   // the body of the draw event loop during animation
   draw(dt) {
     if (DEBUG) { statsDraw.begin(); }
-    clearCanvas();
-    ctx.save();
-    drawMaze(dt);
-    updatePlayerZoom(dt);
-    followAndZoom(dt);
-    drawArrows(dt);
-    drawAnimationFrame(dt);
-    drawPlayer(dt);
-    ctx.restore();
-    drawDebug(dt);
-    if (DEBUG) { statsDraw.end(); }
+    if (gameState.do_redraw) {
+      clearCanvas();
+      ctx.save();
+      drawMaze(dt);
+      updatePlayerZoom(dt);
+      followAndZoom(dt);
+      drawArrows(dt);
+      drawAnimationFrame(dt);
+      drawPlayer(dt);
+      ctx.restore();
+      drawDebug(dt);
+      if (DEBUG) {
+        statsDraw.end();
+      }
+    }
   },
 
   advanceInternalState (nextState) {
@@ -351,6 +363,7 @@ const openAnimation = {
       player.x = animationStartPoint[0];
       player.y = animationStartPoint[1];
       this.animationTimer = window.setInterval(() => this.advanceInternalState('fly_to_start'), 5000);
+      this.do_redraw = true;
     }
   },
   open_credits_draw(dt) {
@@ -367,10 +380,12 @@ const openAnimation = {
     ctx.fillText("Firefox® by the Mozilla Foundation", player.x, player.y + 50);
     ctx.fillText("(used by an employee with tacit assent)", player.x, player.y + 65);
     ctx.restore();
+    this.do_redraw = false;
   },
 
   fly_to_start(dt) {
     player.forceZoomIn = false;
+    this.do_redraw = true;
 
     let distanceFromStart = distanceFrom(player.x, player.y, map.startX, map.startY);
     player.r = Math.atan2(map.startY - player.y, (map.startX + distanceFromStart / 2.0) - player.x);
@@ -394,15 +409,18 @@ const openAnimation = {
       player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
       player.forceZoomIn = true;
       this.animationTimer = window.setInterval(() => this.advanceInternalState('start_message'), 1000);
+      this.do_redraw = true;
     }
   },
   pause_a_second_draw(dt){
+    this.do_redraw = false;
   },
 
   start_message(dt) {
     if (!this.animationTimer) {
       player.forceZoomIn = true;
       this.animationTimer = window.setInterval(() => this.advanceInternalState('fly_to_end'), 3000);
+      this.do_redraw = true;
     }
   },
   start_message_draw(dt) {
@@ -413,10 +431,12 @@ const openAnimation = {
     ctx.textAlign = 'center';
     ctx.fillText("You're going to start here...", map.startMessageBase[0], map.startMessageBase[1] - 42);
     ctx.restore();
+    this.do_redraw = false;
   },
 
   fly_to_end(dt) {
     player.forceZoomIn = false;
+    this.do_redraw = true;
 
     let distanceFromEnd = distanceFrom(player.x, player.y, map.endX, map.endY);
     player.r = Math.atan2((map.endY + distanceFromEnd / 2.0) - player.y, (map.endX) - player.x);
@@ -433,7 +453,6 @@ const openAnimation = {
     player.y = ty;
   },
   fly_to_end_draw(dt) {
-
   },
 
   end_message_one(dt){
@@ -441,6 +460,7 @@ const openAnimation = {
       player.r = Math.atan2(map.endHeadingY - map.endY, map.endHeadingX - map.endX);
       player.forceZoomIn = true;
       this.animationTimer = window.setInterval(() => this.advanceInternalState('end_message_two'), 3000);
+      this.do_redraw = true;
     }
   },
   end_message_one_draw(dt) {
@@ -451,12 +471,14 @@ const openAnimation = {
     ctx.textAlign = 'center';
     ctx.fillText("The goal is to exit here.",  map.endMessageBase[0], map.endMessageBase[1] - 52);
     ctx.restore();
+    this.do_redraw = false;
   },
 
   end_message_two(dt){
     if (!this.animationTimer){
       player.forceZoomIn = true;
       this.animationTimer = window.setInterval(() => this.advanceInternalState('fly_back_to_start'), 3000);
+      this.do_redraw = true;
     }
   },
   end_message_two_draw(dt) {
@@ -467,9 +489,11 @@ const openAnimation = {
     ctx.textAlign = 'center';
     ctx.fillText("Take all the time you need...", map.endMessageBase[0], map.endMessageBase[1] - 52);
     ctx.restore();
+    this.do_redraw = false;
   },
 
   fly_back_to_start(dt) {
+    this.do_redraw = true;
     player.forceZoomIn = false;
     let distanceFromStart = distanceFrom(player.x, player.y, map.startX, map.startY);
     player.r = Math.atan2(map.startY + distanceFromStart / 2.0 - player.y, map.startX - player.x);
@@ -495,6 +519,7 @@ const openAnimation = {
       this.animationTimer = window.setInterval(() => this.advanceInternalState('start_message_cursor_message_two'), 4000);
       player.colorOverride = true;
       player.colorHintingTimer = window.setInterval(degradeHintingColor, 200);
+      this.do_redraw = true;
     }
   },
   start_message_cursor_message_one_draw(dt) {
@@ -506,6 +531,7 @@ const openAnimation = {
     ctx.fillText("If the cursor gradually turns", map.startMessageBase[0], map.startMessageBase[1] - 62);
     ctx.fillText("red, you're on the wrong path", map.startMessageBase[0], map.startMessageBase[1] - 42);
     ctx.restore();
+    this.do_redraw = true;  // we want to see the cusor change color
   },
 
   start_message_cursor_message_two(dt) {
@@ -514,6 +540,7 @@ const openAnimation = {
       this.animationTimer = window.setInterval(() => this.advanceInternalState('go'), 5000);
       player.colorOverride = true;
       player.colorHintingTimer = window.setInterval(upgradeHintingColor, 150);
+      this.do_redraw = true;
     }
   },
   start_message_cursor_message_two_draw(dt) {
@@ -525,6 +552,7 @@ const openAnimation = {
     ctx.fillText("Jump back to the numbered", map.startMessageBase[0], map.startMessageBase[1] - 57);
     ctx.fillText("breadcrumbs until it turns white again", map.startMessageBase[0], map.startMessageBase[1] - 42);
     ctx.restore();
+    this.do_redraw = true;  // we want to see the cusor change color
   },
 
   go(dt) {
@@ -540,6 +568,7 @@ const openAnimation = {
     if (!this.animationTimer) {
       camera.zmin = 1.0;
       this.animationTimer = window.setInterval(() => this.advanceInternalState('end_of_start_animation'), 2000);
+      this.do_redraw = true;
     }
   },
   go_draw(dt) {
@@ -550,6 +579,7 @@ const openAnimation = {
     ctx.textAlign = 'center';
     ctx.fillText("GO!", map.startX, map.startY - 52);
     ctx.restore();
+    this.do_redraw = true; // we want to see the zoom change
   },
 
   end_of_start_animation(dt) {
@@ -567,6 +597,7 @@ const endAnimation = {
   animationState: "start_of_end_animation",
   animationTimer: false,
   endAnimationState: "end_of_end_animation",
+  do_redraw: false,
 
   playerPositionHeuristic(singleAxisPosition) { return singleAxisPosition; },
 
@@ -674,6 +705,8 @@ function switchToGamePlayMode() {
   theResumeButton.style.visibility = 'hidden';
   theCanvas.style.visibility = "visible";
 
+  gameState.do_redraw = true;
+
   // startup the animation timers
   // initialize the canvas
   // initialize the player
@@ -711,6 +744,7 @@ function switchToResumeMode() {
   theStartButton.style.visibility = 'hidden';
   theResumeButton.style.visibility = 'hidden';
   theCanvas.style.visibility = 'visible';
+  gameState.do_redraw = true;
 
   // reinitialize the Input handlers
   Input.init();
@@ -1055,19 +1089,25 @@ function drawAnimationFrame(dt) {
 }
 
 function updatePlayerZoom(dt) {
+  if (camera.z < 0.8)
+     gameState.do_redraw = true;
   let zoomInDelta = 0;
   let zoomOutDelta = 0;
   if (player.v !== 0 || player.forceZoomIn) {
     camera.zdelay = camera.zdelaymax;
+    if (camera.z == camera.zmax) return;
+    gameState.do_redraw = true;
     camera.z += 0.3;
     if (camera.z > camera.zmax) {
       camera.z = camera.zmax;
     }
   } else {
+    if (camera.z == camera.zmin) return
     if (camera.zdelay > 0) {
       camera.zdelay -= dt;
       return;
     }
+    gameState.do_redraw = true;
     camera.z -= 0.2;
     if (camera.z < camera.zmin) {
       camera.z = camera.zmin;
@@ -1141,11 +1181,15 @@ function updatePlayerMotion(dt) {
       player.vibrateBaseLocation = [tx, ty];
       return;
     }
+    if (player.x != tx && player.y != tx)
+      gameState.do_not_redraw = false;
     player.x = tx;
     player.y = ty;
     return;
   }
 
+  if (player.x != tx && player.y != tx)
+    gameState.do_redraw = true;
   player.x = tx;
   player.y = ty;
   player.vibrating = 0;
@@ -1821,6 +1865,7 @@ function playerWantsAttention() {
 function actOnCurrentCommands(dt, player, currentCamera) {
 
   if (Commands.moveSpeedFactor) {
+    gameState.do_redraw = true;
     player.v = player.maxSpeed * Commands.moveSpeedFactor;
     player.r = Commands.moveDirection;
   } else {
@@ -1828,6 +1873,7 @@ function actOnCurrentCommands(dt, player, currentCamera) {
   }
 
   if (Commands.backup) {
+    gameState.do_redraw = true;
     if (player.breadcrumb_stack.stack.length > 0) {
       let columnNumber = Math.trunc(player.current_path[0] / map.tileWidth);
       let rowNumber = Math.trunc(player.current_path[1] / map.tileHeight);
@@ -1841,6 +1887,7 @@ function actOnCurrentCommands(dt, player, currentCamera) {
   }
 
   if (Commands.zoom && currentCamera == gameCameraNoAutoZoom) {
+    gameState.do_redraw = true;
     try {
       if (currentCamera.referenceZ == false)   // == false because must disambiguate from case 0
         currentCamera.referenceZ = currentCamera.z;
@@ -1858,11 +1905,13 @@ function actOnCurrentCommands(dt, player, currentCamera) {
     camera.referenceZ = false;
 
   if (Commands.auto_zoom) {
+    gameState.do_redraw = true;
     camera = (camera == gameCameraNoAutoZoom) ? gameCameraWithAutoZoom : gameCameraNoAutoZoom;
     currentCamera = camera;
   }
 
   if (Commands.pause) {
+    gameState.do_redraw = true;
     switchToPauseMode();
   }
 
