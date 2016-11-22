@@ -227,10 +227,10 @@ const blueMap = {
   endMessageBase: [2881, 3933], // shift way down to print under arrow
 };
 
-// repeats in the possibleGames variable are to make some solutions rarer than others
+// repeats in the possibleMaps variable are to make some solutions rarer than others
 const possibleMaps = [greenMap, greenMap, greenMap, greenMap, redMap, redMap, redMap, redMapBackwards, greenMapBackwards, blueMap, blueMap, violetMap ];
-//var map = possibleMaps[getRandomInt(0, possibleGames.length)];
-var map = greenMap;
+var map = possibleMaps[getRandomInt(0, possibleMaps.length)];
+//var map = greenMap;
 
 const animationStartPoints = [[5000, 4000], [-1000, -1000], [0, 5000], [5000, -500]];
 const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartPoints.length)];
@@ -509,14 +509,12 @@ const openAnimation = {
   },
 
   start_message_cursor_message_two(dt) {
-    if (player.colorHintingTimer) {
-      window.clearInterval(player.colorHintingTimer);
-      player.colorHintingTimer = false;
-      player.colorOverride = false;
-    }
     player.forceZoomIn = true;
-    if (!this.animationTimer)
+    if (!this.animationTimer) {
       this.animationTimer = window.setInterval(() => this.advanceInternalState('go'), 5000);
+      player.colorOverride = true;
+      player.colorHintingTimer = window.setInterval(upgradeHintingColor, 150);
+    }
   },
   start_message_cursor_message_two_draw(dt) {
     ctx.save();
@@ -530,14 +528,18 @@ const openAnimation = {
   },
 
   go(dt) {
+    player.forceZoomIn = false;
     player.x = map.startX;
     player.y = map.startY;
     player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
-    player.forceZoomIn = true;
+    if (player.colorHintingTimer) {
+      window.clearInterval(player.colorHintingTimer);
+      player.colorHintingTimer = false;
+      player.colorOverride = false;
+    }
     if (!this.animationTimer) {
+      camera.zmin = 1.0;
       this.animationTimer = window.setInterval(() => this.advanceInternalState('end_of_start_animation'), 2000);
-      player.colorOverride = true;
-      player.colorHintingTimer = window.setInterval(upgradeHintingColor, 150);
     }
   },
   go_draw(dt) {
@@ -551,12 +553,6 @@ const openAnimation = {
   },
 
   end_of_start_animation(dt) {
-    player.forceZoomIn = false;
-    if (player.colorHintingTimer) {
-      window.clearInterval(player.colorHintingTimer);
-      player.colorHintingTimer = false;
-      player.colorOverride = false;
-    }
     initPlayer();
     camera = gameCameraNoAutoZoom;
     gameState = gamePlay;
