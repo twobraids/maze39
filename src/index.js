@@ -230,7 +230,7 @@ const blueMap = {
 // repeats in the possibleMaps variable are to make some solutions rarer than others
 const possibleMaps = [greenMap, greenMap, greenMap, greenMap, redMap, redMap, redMap, redMapBackwards, greenMapBackwards, blueMap, blueMap, violetMap ];
 var map = possibleMaps[getRandomInt(0, possibleMaps.length)];
-//var map = greenMap;
+//map = greenMap;
 
 const animationStartPoints = [[5000, 4000], [-1000, -1000], [0, 5000], [5000, -500]];
 const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartPoints.length)];
@@ -266,6 +266,10 @@ const gamePlay = {
     updatePlayerZoom(dt);
     updatePlayerMotion(dt);
     updateDebug();
+    if (distanceFrom(player.x, player.y, map.endX, map.endY) < 4) {
+      gameState = endAnimation;
+      camera = endAnimationCamera;
+    }
     if (DEBUG) { statsUpdate.end(); }
   },
 
@@ -596,26 +600,35 @@ const openAnimation = {
 const endAnimation = {
   animationState: "start_of_end_animation",
   animationTimer: false,
-  endAnimationState: "end_of_end_animation",
+  endAnimationState: "done_message",
   do_redraw: false,
 
-  playerPositionHeuristic(singleAxisPosition) { return singleAxisPosition; },
+  playerPositionHeuristic(singleAxisPosition) {
+    return singleAxisPosition;
+  },
 
   update(dt) {
-    if (DEBUG) { statsUpdate.begin(); }
-    camera = animationCamera;
+    if (DEBUG) {
+      statsUpdate.begin();
+    }
+    camera = endAnimationCamera;
     // we get commands, but don't act on them
     // this allows any input to interrupt the opening animation
-    getCurrentCommands(dt, player, camera);
-    updatePlayerFromScript(dt);
+    //getCurrentCommands(dt, player, camera);
+    Commands.attention = false;
     updatePlayerZoom(dt);
+    updatePlayerFromScript(dt);
     updateDebug();
     if (
-      DEBUG) { statsUpdate.end(); }
+      DEBUG) {
+      statsUpdate.end();
+    }
   },
 
   draw(dt) {
-    if (DEBUG) { statsDraw.begin(); }
+    if (DEBUG) {
+      statsDraw.begin();
+    }
     clearCanvas();
     ctx.save();
     drawMaze(dt);
@@ -625,8 +638,99 @@ const endAnimation = {
     drawPlayer(dt);
     ctx.restore();
     drawDebug(dt);
-    if (DEBUG) { statsDraw.end(); }
-  }
+    if (DEBUG) {
+      statsDraw.end();
+    }
+  },
+
+  advanceInternalState (nextState) {
+    if (this.animationTimer) {
+      window.clearInterval(this.animationTimer);
+      this.animationTimer = false;
+    }
+    this.animationState = nextState;
+  },
+
+  start_of_end_animation (dt) {
+    if (!this.animationTimer) {
+      player.forceZoomIn = true;
+      player.x = map.endX;
+      player.y = map.endY;
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('fly_to_middle'), 4000);
+      this.do_redraw = true;
+    }
+  },
+  start_of_end_animation_draw (dt) {
+    ctx.save();
+    ctx.strokeStyle = '#0f0';
+    ctx.fillStyle = '#0f0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("YOU MADE IT TO THE END !", map.endMessageBase[0], map.endMessageBase[1] - 52);
+    ctx.restore();
+    this.do_redraw = false;
+  },
+
+  fly_to_middle(dt) {
+    player.forceZoomIn = false;
+    this.do_redraw = true;
+
+    let distanceFromMiddle = distanceFrom(player.x, player.y, 2000, 2000);
+    player.r = Math.atan2((2000 + distanceFromMiddle / 2.0) - player.y, (2000) - player.x);
+    player.v = 0;
+    let tx = Math.cos(player.r) * player.maxSpeed * 5 * dt + player.x;
+    let ty = Math.sin(player.r) * player.maxSpeed * 5 * dt + player.y;
+
+    if (distanceFrom(tx, ty, 2000, 2000) < distanceFrom(tx, ty, player.x, player.y)) {
+      tx = 2000;
+      ty = 2000;
+      this.animationState = "pause_a_second";
+    }
+    player.x = tx;
+    player.y = ty;
+  },
+  fly_to_middle_draw(dt) {
+  },
+
+  pause_a_second(dt) {
+    if (!this.animationTimer) {
+      player.forceZoomIn = false;
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('fly_away'), 1000);
+      this.do_redraw = true;
+    }
+  },
+  pause_a_second_draw(dt){
+  },
+
+  fly_away(dt) {
+    player.forceZoomIn = false;
+    this.do_redraw = true;
+
+    let distanceFromMiddle = distanceFrom(player.x, player.y, 2000, -2100);
+    player.r = Math.atan2((-2100 + distanceFromMiddle / 2.0) - player.y, (2000) - player.x);
+    player.v = 0;
+    let tx = Math.cos(player.r) * player.maxSpeed * 10 * dt + player.x;
+    let ty = Math.sin(player.r) * player.maxSpeed * 10 * dt + player.y;
+
+    if (distanceFrom(tx, ty, 2000, -2100) < distanceFrom(tx, ty, player.x, player.y)) {
+      tx = 2000;
+      ty = -2100;
+      this.animationState = "reset";
+    }
+    player.x = tx;
+    player.y = ty;
+
+  },
+  fly_away_draw(dt) {
+  },
+
+  reset(dt) {
+    document.location.reload(true);
+  },
+  reset_draw(dt) {
+  },
+
+
 
 }
 
@@ -642,6 +746,7 @@ var gameState = openAnimation;
 var gameCameraNoAutoZoom = { name: 'game_no_auto_zoom', x: 0, y: 0, z: 1.0, zmin: 1.0, zmax: 1.0, referenceZ: false, zdelay: 0, zdelaymax: 500 };
 var gameCameraWithAutoZoom = { name: 'game_auto_zoom', x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
 var animationCamera = { name: 'animation', x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 3.75, zdelay: 0, zdelaymax: 500 };
+var endAnimationCamera = { name: 'animation', x: 0, y: 0, z: 0.75, zmin: 0.2, zmax: 3.75, zdelay: 0, zdelaymax: 500 };
 var camera = animationCamera;
 
 // player
@@ -1046,16 +1151,6 @@ function initPlayer() {
   }
 }
 
-// The opening animation is also a state system.  The states are numbered and can be advanced
-// either by this timer function or by directly changing the animation varible
-function incrementAnimationState() {
-  if (openAnimation.animationTimer) {
-    window.clearInterval(openAnimation.animationTimer);
-    openAnimation.animationTimer = false;
-  }
-  openAnimation.animationState += 1;
-}
-
 function abortIntro() {
   if (playerWantsAttention()) {
     if (openAnimation.animationTimer) {
@@ -1077,8 +1172,10 @@ function updatePlayerFromScript(dt) {
   // During animation sequences, this method is called in the update event loop. It is
   // in charge of running the commands associated with the animation's current internal state
   abortIntro(); // if the user does anything - abort the animation
-  if (gameState.animationState)
+  if (gameState.animationState) {
+    console.log(gameState.animationState);
     gameState[gameState.animationState](dt);
+  }
 }
 
 function drawAnimationFrame(dt) {
