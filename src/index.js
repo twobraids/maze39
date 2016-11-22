@@ -9,6 +9,11 @@ import Stats from 'stats.js';
 import { requestAnimFrame } from './lib/utils';
 import Input from './lib/input';
 
+// Constants
+const DEBUG = false;
+const TICK = 1000 / 60;
+const PI2 = Math.PI * 2;
+
 // Utilities Section
 
 function getRandomInt(min, max) {
@@ -32,21 +37,7 @@ function Stack() {
     }
     return [0, 0];
   };
-  this.noCloser = function(x, y, topDistance, otherDistance) {
-    if (this.stack.length == 0) return true;
-    if (distanceFrom(x, y, this.stack[this.stack.length - 1][0], this.stack[this.stack.length - 1][1]) < topDistance)
-      return false;
-
-    for (let i = 0; i < this.stack.length - 1; i++)
-      if (distanceFrom(x, y, this.stack[i][0], this.stack[i][1]) < otherDistance)
-         return false;
-    return true;
-  }
 }
-
-const DEBUG = false;
-const TICK = 1000 / 60;
-const PI2 = Math.PI * 2;
 
 // TODO: Load this from an external JSON URL for Issue #13
 const greenMap = {
@@ -237,8 +228,10 @@ const blueMap = {
 };
 
 // repeats in the possibleGames variable are to make some solutions rarer than others
-const possibleGames = [greenMap, greenMap, greenMap, greenMap, redMap, redMap, redMap, redMapBackwards, greenMapBackwards, blueMap, blueMap, violetMap ];
-var map = possibleGames[getRandomInt(0, possibleGames.length)];
+const possibleMaps = [greenMap, greenMap, greenMap, greenMap, redMap, redMap, redMap, redMapBackwards, greenMapBackwards, blueMap, blueMap, violetMap ];
+//var map = possibleMaps[getRandomInt(0, possibleGames.length)];
+var map = greenMap;
+
 const animationStartPoints = [[5000, 4000], [-1000, -1000], [0, 5000], [5000, -500]];
 const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartPoints.length)];
 
@@ -247,13 +240,23 @@ const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartP
 //    openAnimation -- used at the beginning where the movement of the cursor is scripted
 //    endAnimation -- used ath the end of the game when a maze is solved
 
-// gamePlay -- this is the bodies of the event loops for user game control and screen display
+// gamePlay -- the event loops for user game control and screen display
 const gamePlay = {
-  init: init,
+  inimationState: false,
 
+  // it is more efficient to use exact integer pixel positions when drawing
+  // however, that can make the player position appear to be shaky.  This is
+  // especially apparent during animations.  When the player is being drawn,
+  // the drawPlayer routine will look to the current gameState to decide if
+  // the player should be drawn at an integer pixel location or go ahead
+  // and use the floating point position.  In the gameplay, we're choosing
+  // to use the rounded integer position to speed rendering.  Contrast this
+  // with the code for the openAnimation state.
   playerPositionHeuristic(singleAxisPosition) { return Math.round(singleAxisPosition); },
-  // this method is the repeated command control loop.  It gets the commands from the user
-  //  acts on  them, and then updates the state of the player
+
+  // this is the body of the update event loop.  It's duties are all related to controlling
+  // the player - getting commands, updating the player location
+
   update(dt) {
     if (DEBUG) { statsUpdate.begin(); }
 
@@ -265,8 +268,7 @@ const gamePlay = {
     if (DEBUG) { statsUpdate.end(); }
   },
 
-  // this method is repeated for each frame displayed.  It draws all the screen
-  // components, manages the camera perspective.
+  // this is the body of the draw event loop - it is run once for each frame displayed
   draw(dt) {
     if (DEBUG) { statsDraw.begin(); }
     clearCanvas();
@@ -280,17 +282,33 @@ const gamePlay = {
     ctx.restore();
     drawDebug(dt);
     if (DEBUG) { statsDraw.end(); }
-  }
-}
+  },
+
+};
 
 // openAnimation -- this is the code used in the event loops when the opening
 // animation is running.
 const openAnimation = {
-  animationState: 0,
+  animationState: "open_credits",
   animationTimer: false,
 
+  // when the player aborts an animation, the animation must shutdown in an
+  // orderly manner.  This constant identifies the shutdown state to jump to
+  // during an abort
+  endAnimationState: "end_of_start_animation",
+
+  // it is more efficient to use exact integer pixel positions when drawing
+  // however, that can make the player position appear to be shaky.  This is
+  // especially apparent during animations.  When the player is being drawn,
+  // the drawPlayer routine will look to the current gameState to decide if
+  // the player should be drawn at an exact integer pixel location or go ahead
+  // and use the floating point position.  In this animation, we're choosing
+  // to use the exact floating point position.  Contrast this with the
+  // code for the gamePlay state.
   playerPositionHeuristic(singleAxisPosition) { return singleAxisPosition; },
-  init: init,
+
+
+  // the body of the update event loop during an animation
   update(dt) {
     if (DEBUG) { statsUpdate.begin(); }
     camera = animationCamera;
@@ -298,33 +316,264 @@ const openAnimation = {
     // this allows any input to interrupt the opening animation
     getCurrentCommands(dt, player, camera);
     updatePlayerFromScript(dt);
-    updatePlayerZoom(dt);
-    updatePlayerMotionFromScript(dt);
     updateDebug();
     if (
       DEBUG) { statsUpdate.end(); }
   },
+
+  // the body of the draw event loop during animation
   draw(dt) {
     if (DEBUG) { statsDraw.begin(); }
     clearCanvas();
     ctx.save();
     drawMaze(dt);
+    updatePlayerZoom(dt);
     followAndZoom(dt);
     drawArrows(dt);
-    drawMessages(dt);
+    drawAnimationFrame(dt);
     drawPlayer(dt);
     ctx.restore();
     drawDebug(dt);
     if (DEBUG) { statsDraw.end(); }
-  }
+  },
+
+  advanceInternalState (nextState) {
+    if (this.animationTimer) {
+      window.clearInterval(this.animationTimer);
+      this.animationTimer = false;
+    }
+    this.animationState = nextState;
+  },
+
+  open_credits(dt) {
+    if (!this.animationTimer) {
+      player.forceZoomIn = true;
+      player.x = animationStartPoint[0];
+      player.y = animationStartPoint[1];
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('fly_to_start'), 5000);
+    }
+  },
+  open_credits_draw(dt) {
+    ctx.save();
+    ctx.strokeStyle = '#0bf';
+    ctx.fillStyle = '#0bf';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("The Firefox Maze", player.x, player.y - 20);
+    ctx.strokeStyle = '#fb0';
+    ctx.fillStyle = '#fb0';
+    ctx.fillText("by   Les Orchard   &   K Lars Lohn", player.x, player.y + 20);
+    ctx.fillText("Art by K Lars Lohn", player.x, player.y + 35);
+    ctx.fillText("Firefox® by the Mozilla Foundation", player.x, player.y + 50);
+    ctx.fillText("(used by an employee with tacit assent)", player.x, player.y + 65);
+    ctx.restore();
+  },
+
+  fly_to_start(dt) {
+    player.forceZoomIn = false;
+
+    let distanceFromStart = distanceFrom(player.x, player.y, map.startX, map.startY);
+    player.r = Math.atan2(map.startY - player.y, (map.startX + distanceFromStart / 2.0) - player.x);
+    player.v = 0;
+    let tx = Math.cos(player.r) * player.maxSpeed * 5 * dt + player.x;
+    let ty = Math.sin(player.r) * player.maxSpeed * 5 * dt + player.y;
+
+    if (distanceFrom(tx, ty, map.startX, map.startY) < distanceFrom(tx, ty, player.x, player.y)) {
+      tx = map.startX;
+      ty = map.startY;
+      this.animationState = "pause_a_second";
+    }
+    player.x = tx;
+    player.y = ty;
+  },
+  fly_to_start_draw(dt) {
+  },
+
+  pause_a_second(dt) {
+    if (!this.animationTimer) {
+      player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
+      player.forceZoomIn = true;
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('start_message'), 1000);
+    }
+  },
+  pause_a_second_draw(dt){
+  },
+
+  start_message(dt) {
+    if (!this.animationTimer) {
+      player.forceZoomIn = true;
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('fly_to_end'), 3000);
+    }
+  },
+  start_message_draw(dt) {
+    ctx.save();
+    ctx.strokeStyle = '#0f0';
+    ctx.fillStyle = '#0f0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("You're going to start here...", map.startMessageBase[0], map.startMessageBase[1] - 42);
+    ctx.restore();
+  },
+
+  fly_to_end(dt) {
+    player.forceZoomIn = false;
+
+    let distanceFromEnd = distanceFrom(player.x, player.y, map.endX, map.endY);
+    player.r = Math.atan2((map.endY + distanceFromEnd / 2.0) - player.y, (map.endX) - player.x);
+    player.v = 0;
+    let tx = Math.cos(player.r) * player.maxSpeed * 5 * dt + player.x;
+    let ty = Math.sin(player.r) * player.maxSpeed * 5 * dt + player.y;
+
+    if (distanceFrom(tx, ty, map.endX, map.endY) < distanceFrom(tx, ty, player.x, player.y)) {
+      tx = map.endX;
+      ty = map.endY;
+      this.animationState = "end_message_one";
+    }
+    player.x = tx;
+    player.y = ty;
+  },
+  fly_to_end_draw(dt) {
+
+  },
+
+  end_message_one(dt){
+    if (!this.animationTimer) {
+      player.r = Math.atan2(map.endHeadingY - map.endY, map.endHeadingX - map.endX);
+      player.forceZoomIn = true;
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('end_message_two'), 3000);
+    }
+  },
+  end_message_one_draw(dt) {
+    ctx.save();
+    ctx.strokeStyle = '#0f0';
+    ctx.fillStyle = '#0f0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("The goal is to exit here.",  map.endMessageBase[0], map.endMessageBase[1] - 52);
+    ctx.restore();
+  },
+
+  end_message_two(dt){
+    if (!this.animationTimer){
+      player.forceZoomIn = true;
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('fly_back_to_start'), 3000);
+    }
+  },
+  end_message_two_draw(dt) {
+    ctx.save();
+    ctx.strokeStyle = '#ff0';
+    ctx.fillStyle = '#ff0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("Take all the time you need...", map.endMessageBase[0], map.endMessageBase[1] - 52);
+    ctx.restore();
+  },
+
+  fly_back_to_start(dt) {
+    player.forceZoomIn = false;
+    let distanceFromStart = distanceFrom(player.x, player.y, map.startX, map.startY);
+    player.r = Math.atan2(map.startY + distanceFromStart / 2.0 - player.y, map.startX - player.x);
+    player.v = 0;
+    let tx = Math.cos(player.r) * player.maxSpeed * 6 * dt + player.x;
+    let ty = Math.sin(player.r) * player.maxSpeed * 6 * dt + player.y;
+
+    if (distanceFrom(tx, ty, map.startX, map.startY) < distanceFrom(tx, ty, player.x, player.y)) {
+      tx = map.startX;
+      ty = map.startY;
+      this.animationState = "start_message_cursor_message_one";
+    }
+    player.x = tx;
+    player.y = ty;
+  },
+  fly_back_to_start_draw(dt) {
+  },
+
+  start_message_cursor_message_one(dt) {
+    player.forceZoomIn = true;
+    player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
+    if (!this.animationTimer) {
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('start_message_cursor_message_two'), 4000);
+      player.colorOverride = true;
+      player.colorHintingTimer = window.setInterval(degradeHintingColor, 200);
+    }
+  },
+  start_message_cursor_message_one_draw(dt) {
+    ctx.save();
+    ctx.strokeStyle = '#f00';
+    ctx.fillStyle = '#f00';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("If the cursor gradually turns", map.startMessageBase[0], map.startMessageBase[1] - 62);
+    ctx.fillText("red, you're on the wrong path", map.startMessageBase[0], map.startMessageBase[1] - 42);
+    ctx.restore();
+  },
+
+  start_message_cursor_message_two(dt) {
+    if (player.colorHintingTimer) {
+      window.clearInterval(player.colorHintingTimer);
+      player.colorHintingTimer = false;
+      player.colorOverride = false;
+    }
+    player.forceZoomIn = true;
+    if (!this.animationTimer)
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('go'), 5000);
+  },
+  start_message_cursor_message_two_draw(dt) {
+    ctx.save();
+    ctx.strokeStyle = '#ff0';
+    ctx.fillStyle = '#ff0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("Jump back to the numbered", map.startMessageBase[0], map.startMessageBase[1] - 57);
+    ctx.fillText("breadcrumbs until it turns white again", map.startMessageBase[0], map.startMessageBase[1] - 42);
+    ctx.restore();
+  },
+
+  go(dt) {
+    player.x = map.startX;
+    player.y = map.startY;
+    player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
+    player.forceZoomIn = true;
+    if (!this.animationTimer) {
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('end_of_start_animation'), 2000);
+      player.colorOverride = true;
+      player.colorHintingTimer = window.setInterval(upgradeHintingColor, 150);
+    }
+  },
+  go_draw(dt) {
+    ctx.save();
+    ctx.strokeStyle = '#0f0';
+    ctx.fillStyle = '#0f0';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText("GO!", map.startX, map.startY - 52);
+    ctx.restore();
+  },
+
+  end_of_start_animation(dt) {
+    player.forceZoomIn = false;
+    if (player.colorHintingTimer) {
+      window.clearInterval(player.colorHintingTimer);
+      player.colorHintingTimer = false;
+      player.colorOverride = false;
+    }
+    initPlayer();
+    camera = gameCameraNoAutoZoom;
+    gameState = gamePlay;
+    this.animationState = "";
+  },
+  end_of_start_animation_draw(dt) {
+  },
+
 }
 
 const endAnimation = {
-  animationState: 100,
+  animationState: "start_of_end_animation",
   animationTimer: false,
+  endAnimationState: "end_of_end_animation",
 
   playerPositionHeuristic(singleAxisPosition) { return singleAxisPosition; },
-  init: init,
+
   update(dt) {
     if (DEBUG) { statsUpdate.begin(); }
     camera = animationCamera;
@@ -333,11 +582,11 @@ const endAnimation = {
     getCurrentCommands(dt, player, camera);
     updatePlayerFromScript(dt);
     updatePlayerZoom(dt);
-    updatePlayerMotionFromScript(dt);
     updateDebug();
     if (
       DEBUG) { statsUpdate.end(); }
   },
+
   draw(dt) {
     if (DEBUG) { statsDraw.begin(); }
     clearCanvas();
@@ -345,12 +594,13 @@ const endAnimation = {
     drawMaze(dt);
     followAndZoom(dt);
     drawArrows(dt);
-    drawMessages(dt);
+    drawAnimationFrame(dt);
     drawPlayer(dt);
     ctx.restore();
     drawDebug(dt);
     if (DEBUG) { statsDraw.end(); }
   }
+
 }
 
 // the game begins with the opening animation
@@ -410,48 +660,63 @@ const theCanvas = document.getElementById('viewport');
 const ctx = theCanvas.getContext('2d');
 const offscreenCanvas = document.createElement("canvas");
 const offscreenContext = offscreenCanvas.getContext('2d');
-const loadingDiv = document.getElementById('explanation');
+const openingDisplayDiv = document.getElementById('explanation');
 const theStartButton = document.getElementById('theStartButton');
 const theResumeButton = document.getElementById('theResumeButton');
-const theErrorDiv = document.getElementById('errors');
+
 
 function switchToGamePlayMode() {
   window.scrollTo(0,0);
-  loadingDiv.style.visibility = 'hidden';
-  let children = loadingDiv.children;
+  openingDisplayDiv.style.visibility = 'hidden';
+  // I would have expected this to cascade to the children
+  // rather than having to do this manually
+  let children = openingDisplayDiv.children;
   for (let i = 0; i < children.length; i++)
     children[i].style.visibility = 'hidden';
 
   theStartButton.style.visibility = 'hidden';
   theResumeButton.style.visibility = 'hidden';
   theCanvas.style.visibility = "visible";
+
+  // startup the animation timers
+  // initialize the canvas
+  // initialize the player
   init();
 }
 
 function switchToPauseMode() {
-  // restore window scroll behavior
-  loadingDiv.style.visiblity = 'visible';
-  let children = loadingDiv.children;
+  // restore all that was visible when the page first
+  // loaded.  Plus make the 'resume' button visible
+  openingDisplayDiv.style.visiblity = 'visible';
+  let children = openingDisplayDiv.children;
   for (let i = 0; i < children.length; i++)
     children[i].style.visibility = 'visible';
 
   theCanvas.style.visibility = 'hidden';
-  Input.un_init();
   theStartButton.style.visibility = 'visible';
   theResumeButton.style.display = 'inline';
   theResumeButton.style.visibility = 'visible';
+
+  // restore normal Web page input handlers
+  Input.restoreOriginalHandlers();
+
 }
 
 function switchToResumeMode() {
+  // jump back to the game where it was waiting
+  // by hiding the opening page and making the
+  // canvas visibe again.
   window.scrollTo(0,0);
   //disable window scroll behavior
-  loadingDiv.style.visiblity = 'hidden';
-  let children = loadingDiv.children;
+  openingDisplayDiv.style.visiblity = 'hidden';
+  let children = openingDisplayDiv.children;
   for (let i = 0; i < children.length; i++)
     children[i].style.visibility = 'hidden';
   theStartButton.style.visibility = 'hidden';
   theResumeButton.style.visibility = 'hidden';
   theCanvas.style.visibility = 'visible';
+
+  // reinitialize the Input handlers
   Input.init();
 
 }
@@ -461,10 +726,7 @@ theResumeButton.onclick= function() {
 }
 
 
-function load() {
-  // HACK: Render the whole path map at original scale and grab image data
-  // array to consult for navigation. Seems wasteful of memory, but performs
-  // way better than constant getImageData() calls
+function loadHandlerForWindow() {
 
   const activateStartButton = e => {
     offscreenCanvas.width = map.width;
@@ -478,23 +740,22 @@ function load() {
   }
 
   map.pathImg = new Image();
-  // as soon as the path image is loaded, show the start button
+  // we want the user to be reading the instructions while the App loads
+  // the large path image.  Make the "START NEW GAME" button visible only
+  // after that has and is ready to go.
   map.pathImg.addEventListener("load", activateStartButton);
   map.pathImg.src = map.pathSrc;
-  map.tileCols = Math.ceil(map.width / map.tileWidth);
-  map.tileRows = Math.ceil(map.height / map.tileHeight);
 
 }
+
 
 function init() {
   // setting the canvas width before the play has hit the start button makes the
   // start page text very very small in the FF for iOS.  Not enlarging the canvas
   // until the game starts, solves that problem.
-
   ctx.canvas.width = map.width;
   ctx.canvas.height = map.height;
   ctx.globalCompositeOperation = 'mulitply';
-
   expandCanvas();
   window.addEventListener('resize', expandCanvas);
 
@@ -508,6 +769,7 @@ function init() {
   requestAnimFrame(draw);
 }
 
+// the update event loop timer runs the loop defined by the gameState
 function update() {
   handleTimer('update', Date.now(), updateTimer, true, dt => {
     gameState.update(dt)
@@ -515,6 +777,7 @@ function update() {
   setTimeout(update, TICK);
 }
 
+// the draw event loop timer runs the loop defined by the gameState
 function draw(ts) {
   handleTimer('draw', ts, drawTimer, false, dt => {
     gameState.draw(dt)
@@ -546,6 +809,7 @@ function clearCanvas(dt) {
 }
 
 function followAndZoom(dt) {
+  // setup the parameters for the canvas for the current player location and current camera's zoom level
   ctx.translate(
     (ctx.canvas.width / 2) - (player.x * camera.z),
     (ctx.canvas.height / 2) - (player.y * camera.z)
@@ -589,7 +853,7 @@ function drawMaze(dt) {
       const x = ((col - colStart) * scaledTileWidth) - drawOffX;
       const y = ((row - rowStart) * scaledTileHeight) - drawOffY;
 
-      if (col >= 0 && row >= 0 && col < map.tileCols && row < map.tileRows) {
+      if (col >= 0 && row >= 0 && col < map.numberOfTileColumns && row < map.numberOfTileRows) {
         const tileKey = `${row}x${col}`;
         if (!map.tiles[tileKey]) {
           const img = new Image();
@@ -603,7 +867,7 @@ function drawMaze(dt) {
       }
 
       if (DEBUG && debugIn.tileGrid) {
-        ctx.strokeStyle = (col >= 0 && row >= 0 && col < map.tileCols && row < map.tileRows) ? '#0a0' : '#a00';
+        ctx.strokeStyle = (col >= 0 && row >= 0 && col < map.numberOfTileColumns && row < map.numberOfTileRows) ? '#0a0' : '#a00';
         ctx.strokeRect(x, y, map.tileWidth * camera.z, map.tileHeight * camera.z);
 
         ctx.strokeStyle = '#fff';
@@ -742,7 +1006,8 @@ function initPlayer() {
   };
   // create a big column ordered grid of lists that mirror the size and shape of the tile
   // maps for use in saving sets of used paths.  This will allow optimization of drawing
-  // only the used paths that are actually in view
+  // only the used paths that are actually in view - could be made more efficient by
+  // clipping the paths so they don't cross over tile boundaries.
   player.used_paths = [];
   for (let i = 0; i < map.numberOfTileColumns; i++) {
     player.used_paths.push([]); // the X dimension
@@ -751,7 +1016,7 @@ function initPlayer() {
   }
 }
 
-// The openning animation is also a state system.  The states are numbered and can be advanced
+// The opening animation is also a state system.  The states are numbered and can be advanced
 // either by this timer function or by directly changing the animation varible
 function incrementAnimationState() {
   if (openAnimation.animationTimer) {
@@ -761,15 +1026,11 @@ function incrementAnimationState() {
   openAnimation.animationState += 1;
 }
 
-function hasKeys(aMapping) {
-  return Object.keys(aMapping).length > 0;
-}
-
 function abortIntro() {
   if (playerWantsAttention()) {
     if (openAnimation.animationTimer) {
-      window.clearInterval(openAnimation.animationTimer);
-      openAnimation.animationTimer = false;
+      window.clearInterval(gameState.animationTimer);
+      gameState.animationTimer = false;
     }
     if (player.colorHintingTimer) {
       window.clearInterval(player.colorHintingTimer);
@@ -778,216 +1039,22 @@ function abortIntro() {
       player.color = 4094;
     }
     // jump to the last animation state if the user interrupts the animation
-    openAnimation.animationState = 11;
+    gameState.animationState = gameState.endAnimationState;
   }
 }
 
 function updatePlayerFromScript(dt) {
-  let animationState = openAnimation.animationState;
-  abortIntro();
-  if (openAnimation.animationState == 0) {
-    player.forceZoomIn = true;
-    player.x = animationStartPoint[0];
-    player.y = animationStartPoint[1];
-    if (!openAnimation.animationTimer) {
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 5000);
-    }
-  } else if (animationState == 1) {
-    player.forceZoomIn = false;
-
-  } else if (animationState == 2) {
-    player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
-    player.forceZoomIn = true;
-    if (!openAnimation.animationTimer)
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 1e000);
-
-  } else if (animationState == 3) {
-    player.forceZoomIn = true;
-    if (!openAnimation.animationTimer)
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
-
-  } else if (animationState == 4) {
-    player.forceZoomIn = false;
-
-  } else if (animationState == 5) {
-    player.r = Math.atan2(map.endHeadingY - map.endY, map.endHeadingX - map.endX);
-    player.forceZoomIn = true;
-    if (!openAnimation.animationTimer)
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
-
-  } else if (animationState == 6) {
-    player.forceZoomIn = true;
-    if (!openAnimation.animationTimer)
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 3000);
-
-  } else if (animationState == 7) {
-    player.forceZoomIn = false;
-
-  } else if (animationState == 8) {
-    player.forceZoomIn = true;
-    player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
-    if (!openAnimation.animationTimer) {
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 4000);
-      player.colorOverride = true;
-      player.colorHintingTimer = window.setInterval(degradeHintingColor, 200);
-    }
-
-  } else if (animationState == 9) {
-    if (player.colorHintingTimer) {
-      window.clearInterval(player.colorHintingTimer);
-      player.colorHintingTimer = false;
-      player.colorOverride = false;
-    }
-    player.forceZoomIn = true;
-    if (!openAnimation.animationTimer)
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 5000);
-
-  } else if (animationState == 10) {
-    player.x = map.startX;
-    player.y = map.startY;
-    player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
-    player.forceZoomIn = true;
-    if (!openAnimation.animationTimer) {
-      openAnimation.animationTimer = window.setInterval(incrementAnimationState, 2000);
-      player.colorOverride = true;
-      player.colorHintingTimer = window.setInterval(upgradeHintingColor, 150);
-    }
-
-  } else if (animationState == 11) {
-    player.forceZoomIn = false;
-    if (player.colorHintingTimer) {
-      window.clearInterval(player.colorHintingTimer);
-      player.colorHintingTimer = false;
-      player.colorOverride = false;
-    }
-    initPlayer();
-    camera = gameCameraNoAutoZoom;
-    gameState = gamePlay;
-    animationState = 100;
-  }
+  // During animation sequences, this method is called in the update event loop. It is
+  // in charge of running the commands associated with the animation's current internal state
+  abortIntro(); // if the user does anything - abort the animation
+  if (gameState.animationState)
+    gameState[gameState.animationState](dt);
 }
 
-function updatePlayerMotionFromScript(dt) {
-  let animationState = openAnimation.animationState;
-  if (animationState == 1) {
-    let distanceFromStart = distanceFrom(player.x, player.y, map.startX, map.startY);
-    player.r = Math.atan2(map.startY - player.y, (map.startX + distanceFromStart / 2.0) - player.x);
-    player.v = 0;
-    let tx = Math.cos(player.r) * player.maxSpeed * 5 * dt + player.x;
-    let ty = Math.sin(player.r) * player.maxSpeed * 5 * dt + player.y;
-
-    if (distanceFrom(tx, ty, map.startX, map.startY) < distanceFrom(tx, ty, player.x, player.y)) {
-      tx = map.startX;
-      ty = map.startY;
-      incrementAnimationState();
-    }
-    player.x = tx;
-    player.y = ty;
-
-  } if (animationState == 4) {
-    let distanceFromEnd = distanceFrom(player.x, player.y, map.endX, map.endY);
-    player.r = Math.atan2((map.endY + distanceFromEnd / 2.0) - player.y, (map.endX) - player.x);
-    player.v = 0;
-    let tx = Math.cos(player.r) * player.maxSpeed * 5 * dt + player.x;
-    let ty = Math.sin(player.r) * player.maxSpeed * 5 * dt + player.y;
-
-    if (distanceFrom(tx, ty, map.endX, map.endY) < distanceFrom(tx, ty, player.x, player.y)) {
-      tx = map.endX;
-      ty = map.endY;
-      incrementAnimationState();
-    }
-    player.x = tx;
-    player.y = ty;
-
-  } if (animationState == 7) {
-    let distanceFromStart = distanceFrom(player.x, player.y, map.startX, map.startY);
-    player.r = Math.atan2(map.startY + distanceFromStart / 2.0 - player.y, map.startX - player.x);
-    player.v = 0;
-    let tx = Math.cos(player.r) * player.maxSpeed * 6 * dt + player.x;
-    let ty = Math.sin(player.r) * player.maxSpeed * 6 * dt + player.y;
-
-    if (distanceFrom(tx, ty, map.startX, map.startY) < distanceFrom(tx, ty, player.x, player.y)) {
-      tx = map.startX;
-      ty = map.startY;
-      incrementAnimationState();
-    }
-    player.x = tx;
-    player.y = ty;
-  }
-}
-
-function drawMessages(dt) {
-  let animationState = openAnimation.animationState;
-  if (animationState == 0) {
-    ctx.save();
-    ctx.strokeStyle = '#0bf';
-    ctx.fillStyle = '#0bf';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText("The Firefox Maze", player.x, player.y - 20);
-    ctx.strokeStyle = '#fb0';
-    ctx.fillStyle = '#fb0';
-    ctx.fillText("by   Les Orchard   &   K Lars Lohn", player.x, player.y + 20);
-    ctx.fillText("Art by K Lars Lohn", player.x, player.y + 35);
-    ctx.fillText("Firefox® by the Mozilla Foundation", player.x, player.y + 50);
-    ctx.fillText("(used by an employee with tacit assent)", player.x, player.y + 65);
-    ctx.restore();
-  } else if (animationState == 3) {
-    ctx.save();
-    ctx.strokeStyle = '#0f0';
-    ctx.fillStyle = '#0f0';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText("You're going to start here...", map.startMessageBase[0], map.startMessageBase[1] - 42);
-    ctx.restore();
-
-  } else if (animationState == 5) {
-    ctx.save();
-    ctx.strokeStyle = '#0f0';
-    ctx.fillStyle = '#0f0';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText("The goal is to exit here.",  map.endMessageBase[0], map.endMessageBase[1] - 52);
-    ctx.restore();
-
-  } else if (animationState == 6) {
-    ctx.save();
-    ctx.strokeStyle = '#ff0';
-    ctx.fillStyle = '#ff0';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText("Take all the time you need...", map.endMessageBase[0], map.endMessageBase[1] - 52);
-    ctx.restore();
-
-  } else if (animationState == 8) {
-    ctx.save();
-    ctx.strokeStyle = '#f00';
-    ctx.fillStyle = '#f00';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText("If the cursor gradually turns", map.startMessageBase[0], map.startMessageBase[1] - 62);
-    ctx.fillText("red, you're on the wrong path", map.startMessageBase[0], map.startMessageBase[1] - 42);
-    ctx.restore();
-
-  } else if (animationState == 9) {
-    ctx.save();
-    ctx.strokeStyle = '#ff0';
-    ctx.fillStyle = '#ff0';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText("Jump back to the numbered", map.startMessageBase[0], map.startMessageBase[1] - 57);
-    ctx.fillText("breadcrumbs until it turns white again", map.startMessageBase[0], map.startMessageBase[1] - 42);
-    ctx.restore();
-
-  } else if (animationState == 10) {
-    ctx.save();
-    ctx.strokeStyle = '#0f0';
-    ctx.fillStyle = '#0f0';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText("GO!", map.startX, map.startY - 52);
-    ctx.restore();
-
+function drawAnimationFrame(dt) {
+  if (gameState.animationState) {
+    let animationStateMotion = gameState.animationState + "_draw";
+    gameState[animationStateMotion](dt);
   }
 }
 
@@ -1800,7 +1867,6 @@ function actOnCurrentCommands(dt, player, currentCamera) {
   }
 
   if (Commands.pause) {
-    console.log('PAUSE');
     switchToPauseMode();
   }
 
@@ -1864,4 +1930,4 @@ function updateDebug(dt) {
   });
 }
 
-window.addEventListener('load', load);
+window.addEventListener('load', loadHandlerForWindow);

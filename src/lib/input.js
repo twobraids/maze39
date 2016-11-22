@@ -8,7 +8,6 @@
   boundWindowEvents: {},
 
   init() {
-    console.log('Input.init');
     const windowEvents = {
       mousemove: this.handleMouseMove,
       mousedown: this.handleMouseDown,
@@ -29,12 +28,11 @@
       });
   },
 
-  un_init() {
+  restoreOriginalHandlers() {
     try {
       Object.keys(this.boundWindowEvents)
         .forEach(k => {
           window.removeEventListener(k, this.boundWindowEvents[k]);
-          console.log('allegedly removed ' + k + ' ' + this.boundWindowEvents[k].name);
         });
       this.touchEventTracker = {};
     } catch (err) {
@@ -44,7 +42,6 @@
 
   handleKeyDown(ev) {
     this.keys[ev.keyCode] = true;
-    console.log(ev.keyCode);
     ev.preventDefault();
   },
 
