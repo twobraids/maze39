@@ -5,12 +5,15 @@
   mouse: { x: 0, y: 0, down: false, wheel: false },
   touch: { active: false, x: 0, y: 0 },
 
+  boundWindowEvents: {},
+
   init() {
     const windowEvents = {
       mousemove: this.handleMouseMove,
       mousedown: this.handleMouseDown,
       mouseup: this.handleMouseUp,
       contextmenu: this.ignoreThisEvent,
+      scroll: this.ignoreThisEvent,
       wheel: this.handleWheel,
       keydown: this.handleKeyDown,
       keyup: this.handleKeyUp,
@@ -19,7 +22,22 @@
       touchend: this.handleTouchEnd
     };
     Object.keys(windowEvents)
-      .forEach(k => window.addEventListener(k, windowEvents[k].bind(this)));
+      .forEach(k => {
+        this.boundWindowEvents[k] = windowEvents[k].bind(this);
+        window.addEventListener(k, this.boundWindowEvents[k])
+      });
+  },
+
+  restoreOriginalHandlers() {
+    try {
+      Object.keys(this.boundWindowEvents)
+        .forEach(k => {
+          window.removeEventListener(k, this.boundWindowEvents[k]);
+        });
+      this.touchEventTracker = {};
+    } catch (err) {
+      console.log(err);
+    }
   },
 
   handleKeyDown(ev) {
