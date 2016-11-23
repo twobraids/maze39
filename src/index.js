@@ -253,7 +253,9 @@ const gamePlay = {
   // and use the floating point position.  In the gameplay, we're choosing
   // to use the rounded integer position to speed rendering.  Contrast this
   // with the code for the openAnimation state.
-  playerPositionHeuristic(singleAxisPosition) { return Math.round(singleAxisPosition); },
+  playerPositionHeuristic(singleAxisPosition) {
+    return (camera.z >= 1.5) ? singleAxisPosition : Math.round(singleAxisPosition);
+  },
 
   // this is the body of the update event loop.  It's duties are all related to controlling
   // the player - getting commands, updating the player location
@@ -340,7 +342,7 @@ const openAnimation = {
       clearCanvas();
       ctx.save();
       drawMaze(dt);
-      updatePlayerZoom(dt);
+      //updatePlayerZoom(dt);
       followAndZoom(dt);
       drawArrows(dt);
       drawAnimationFrame(dt);
@@ -1173,7 +1175,6 @@ function updatePlayerFromScript(dt) {
   // in charge of running the commands associated with the animation's current internal state
   abortIntro(); // if the user does anything - abort the animation
   if (gameState.animationState) {
-    console.log(gameState.animationState);
     gameState[gameState.animationState](dt);
   }
 }
