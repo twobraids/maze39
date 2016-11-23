@@ -342,7 +342,6 @@ const openAnimation = {
       clearCanvas();
       ctx.save();
       drawMaze(dt);
-      //updatePlayerZoom(dt);
       followAndZoom(dt);
       drawArrows(dt);
       drawAnimationFrame(dt);
@@ -1280,7 +1279,7 @@ function updatePlayerMotion(dt) {
       return;
     }
     if (player.x != tx && player.y != tx)
-      gameState.do_not_redraw = false;
+      gameState.do_redraw = true;
     player.x = tx;
     player.y = ty;
     return;
@@ -1291,8 +1290,6 @@ function updatePlayerMotion(dt) {
   player.x = tx;
   player.y = ty;
   player.vibrating = 0;
-
-
 }
 
 function redPixel(x, y) {
