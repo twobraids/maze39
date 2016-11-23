@@ -317,6 +317,39 @@ const openAnimation = {
   }
 }
 
+const endAnimation = {
+  animationState: 100,
+  animationTimer: false,
+
+  init: init,
+  update(dt) {
+    if (DEBUG) { statsUpdate.begin(); }
+    camera = animationCamera;
+    // we get commands, but don't act on them
+    // this allows any input to interrupt the opening animation
+    getCurrentCommands(dt, player, camera);
+    updatePlayerFromScript(dt);
+    updatePlayerZoom(dt);
+    updatePlayerMotionFromScript(dt);
+    updateDebug();
+    if (
+      DEBUG) { statsUpdate.end(); }
+  },
+  draw(dt) {
+    if (DEBUG) { statsDraw.begin(); }
+    clearCanvas();
+    ctx.save();
+    drawMaze(dt);
+    followAndZoom(dt);
+    drawArrows(dt);
+    drawMessages(dt);
+    drawPlayer(dt);
+    ctx.restore();
+    drawDebug(dt);
+    if (DEBUG) { statsDraw.end(); }
+  }
+}
+
 // the game begins with the opening animation
 // When any game state finishes, it is the current game state's responsilibity to set
 // the next state.
@@ -328,7 +361,7 @@ var gameState = openAnimation;
 //    animationCamera -- the camera used during the scripted animations
 var gameCameraNoAutoZoom = { name: 'game_no_auto_zoom', x: 0, y: 0, z: 1.0, zmin: 1.0, zmax: 1.0, referenceZ: false, zdelay: 0, zdelaymax: 500 };
 var gameCameraWithAutoZoom = { name: 'game_auto_zoom', x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
-var animationCamera = { name: 'animation', x: 0, y: 0, z: 0.75, zmin: 0.9, zmax: 5.0, zdelay: 0, zdelaymax: 500 };
+var animationCamera = { name: 'animation', x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 3.75, zdelay: 0, zdelaymax: 500 };
 var camera = animationCamera;
 
 // player
@@ -370,36 +403,56 @@ const debugOut = { avg: '', keys: '', gamepad: '', gamepadAxis0: '', gamepadAxis
 
 let gui, statsDraw, statsUpdate;
 
-const ctx = document.getElementById('viewport').getContext('2d');
-ctx.canvas.width = map.width;
-ctx.canvas.height = map.height;
-ctx.globalCompositeOperation = 'mulitply';
+const theCanvas = document.getElementById('viewport');
+const ctx = theCanvas.getContext('2d');
+const loadingDiv = document.getElementById('loading');
+
+function switchToGamePlayMode() {
+  window.scrollTo(0,0);
+  loadingDiv.style.visibility = 'hidden';
+  theCanvas.style.visibility = "visible";
+  init();
+}
+/*const theResumeButton = document.getElementById('theResumeButton');
+theResumeButton.onclick= function() {
+  loadingDiv.style.visiblity = 'hidden';
+  theCanvas.style.visibility = 'visible';
+}*/
+
 
 function load() {
   // HACK: Render the whole path map at original scale and grab image data
   // array to consult for navigation. Seems wasteful of memory, but performs
   // way better than constant getImageData() calls
 
+  const activateStartButton = e => {
+    const theStartButton = document.getElementById('theStartButton');
+    theStartButton.onclick = switchToGamePlayMode;
+    theStartButton.style.visibility = "visible";
+    map.pathImg.removeEventListener('load', activateStartButton);
+  }
+
   map.pathImg = new Image();
+  // as soon as the path image is loaded, show the start button
+  map.pathImg.addEventListener("load", activateStartButton);
   map.pathImg.src = map.pathSrc;
 
   map.tileCols = Math.ceil(map.width / map.tileWidth);
   map.tileRows = Math.ceil(map.height / map.tileHeight);
 
-  const loadBaseMapImg = e => {
-
-    ctx.drawImage(map.pathImg, 0, 0);
-    map.pathData = ctx.getImageData(0, 0, map.width, map.height).data;
-    map.pathImg.removeEventListener('load', loadBaseMapImg);
-
-    init();
-  };
-
-  map.pathImg.addEventListener('load', loadBaseMapImg);
 }
 
 function init() {
-  document.body.className = 'loaded';
+  // setting the canvas width before the play has hit the start button makes the
+  // start page text very very small in the FF for iOS.  Not enlarging the canvas
+  // until the game starts, solves that problem.
+  ctx.canvas.width = map.width;
+  ctx.canvas.height = map.height;
+  ctx.globalCompositeOperation = 'mulitply';
+  ctx.drawImage(map.pathImg, 0, 0);
+
+  map.pathData = ctx.getImageData(0, 0, map.width, map.height).data;
+
   expandCanvas();
   window.addEventListener('resize', expandCanvas);
 
@@ -766,7 +819,8 @@ function updatePlayerFromScript(dt) {
     }
     initPlayer();
     camera = gameCameraNoAutoZoom;
-    gameState = gamePlay
+    gameState = gamePlay;
+    animationState = 100;
   }
 }
 
@@ -857,7 +911,7 @@ function drawMessages(dt) {
     ctx.fillStyle = '#ff0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("You've only got an hour.", map.endMessageBase[0], map.endMessageBase[1] - 52);
+    ctx.fillText("Take all the time you need...", map.endMessageBase[0], map.endMessageBase[1] - 52);
     ctx.restore();
 
   } else if (animationState == 8) {
@@ -876,9 +930,8 @@ function drawMessages(dt) {
     ctx.fillStyle = '#ff0';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    ctx.fillText("Use <bsp>, right mouse button, ", map.startMessageBase[0], map.startMessageBase[1] - 72);
-    ctx.fillText("2 finger tap, or blue button to return", map.startMessageBase[0], map.startMessageBase[1] - 57);
-    ctx.fillText("to a numbered breadcrumb", map.startMessageBase[0], map.startMessageBase[1] - 42);
+    ctx.fillText("Jump back to the numbered", map.startMessageBase[0], map.startMessageBase[1] - 57);
+    ctx.fillText("breadcrumbs until it turns white again", map.startMessageBase[0], map.startMessageBase[1] - 42);
     ctx.restore();
 
   } else if (animationState == 10) {
