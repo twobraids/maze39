@@ -592,6 +592,7 @@ const openAnimation = {
     camera = gameCameraNoAutoZoom;
     gameState = gamePlay;
     this.animationState = "";
+    player.forceZoomIn = false;
   },
   end_of_start_animation_draw(dt) {
   },
@@ -747,7 +748,7 @@ var gameState = openAnimation;
 var gameCameraNoAutoZoom = { name: 'game_no_auto_zoom', x: 0, y: 0, z: 1.0, zmin: 1.0, zmax: 1.0, referenceZ: false, zdelay: 0, zdelaymax: 500 };
 var gameCameraWithAutoZoom = { name: 'game_auto_zoom', x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 5, zdelay: 0, zdelaymax: 500 };
 var animationCamera = { name: 'animation', x: 0, y: 0, z: 0.75, zmin: 0.75, zmax: 3.75, zdelay: 0, zdelaymax: 500 };
-var endAnimationCamera = { name: 'animation', x: 0, y: 0, z: 0.75, zmin: 0.2, zmax: 3.75, zdelay: 0, zdelaymax: 500 };
+var endAnimationCamera = { name: 'animation_end', x: 0, y: 0, z: 0.75, zmin: 0.2, zmax: 3.75, zdelay: 0, zdelaymax: 500 };
 var camera = animationCamera;
 
 // player
@@ -1186,7 +1187,9 @@ function drawAnimationFrame(dt) {
 }
 
 function updatePlayerZoom(dt) {
-  if (camera.z < 0.8)
+  if (camera.name == "game_auto_zoom")
+      gameState.do_redraw = true;
+ if (camera.z < 0.8)
      gameState.do_redraw = true;
   let zoomInDelta = 0;
   let zoomOutDelta = 0;
@@ -1841,15 +1844,15 @@ function createTouchCommands (dt, playerX, playerY, camera) {
     let first = Input.touchEventTracker[touches[0]];
     let second = Input.touchEventTracker[touches[1]];
     let changeInRelativeDistanceBetweenFingers = distanceFrom(first.x, first.y, second.x, second.y) - distanceFrom(first.xStart, first.yStart, second.xStart, second.yStart);
-    let changeInXPositionOfFirstFinger = distanceFrom(first.x, 0, first.xStart, 0);
-    let changeInXPositionOfSecondFinger = distanceFrom(second.x, 0, second.xStart, 0);
-    let changeInYPositionOfFirstFinger = distanceFrom(0, first.y, 0, first.yStart);
-    let changeInYPositionOfSecondFinger = distanceFrom(0, second.y, 0, second.yStart);
-    if (Math.abs(changeInRelativeDistanceBetweenFingers) > 20) {
+    let changeInXPositionOfFirstFinger = first.xStart - first.x;
+    let changeInXPositionOfSecondFinger = second.xStart - second.x;
+    let changeInYPositionOfFirstFinger = first.yStart - first.y;
+    let changeInYPositionOfSecondFinger = second.yStart - second.y;
+    if (Math.abs(changeInRelativeDistanceBetweenFingers) > 30) {
       // pinch for zoom
       TouchCommands.zoom = changeInRelativeDistanceBetweenFingers / 500; // mostly normalized to 0.0 to 1.0
       if (TouchCommands.zoom > 1.2) TouchCommands.zoom = 1.2;
-    }
+    } else
     if (changeInXPositionOfFirstFinger > 30 && changeInXPositionOfSecondFinger > 30
       && Math.abs(changeInYPositionOfFirstFinger) < 15 && Math.abs(changeInYPositionOfSecondFinger) < 15) {
       // left swipe for pause
@@ -1857,7 +1860,7 @@ function createTouchCommands (dt, playerX, playerY, camera) {
     }
     if (first.ended || second.ended)
       // tap for backup
-      if (timestamp - first.timestamp < 1000 && Math.abs(changeInRelativeDistanceBetweenFingers) < 15) {
+      if (timestamp - first.timestamp < 1500 && Math.abs(changeInRelativeDistanceBetweenFingers) < 30) {
         TouchCommands.backup = true;
       }
 
@@ -1871,7 +1874,7 @@ function createTouchCommands (dt, playerX, playerY, camera) {
   // kill the ended touch trackers
   let n = 0;
   for (let i = 0; i < touches.length; i++) {
-    if (Input.touchEventTracker[touches[i]].ended || (timestamp - Input.touchEventTracker[touches[i]].timestamp) > 90000 ) {
+    if (Input.touchEventTracker[touches[i]].ended || (timestamp - Input.touchEventTracker[touches[i]].timestamp) > 9000 ) {
       delete Input.touchEventTracker[touches[i]];
     }
   }
