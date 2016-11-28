@@ -382,8 +382,7 @@ const openAnimation = {
     ctx.fillStyle = '#fb0';
     ctx.fillText("by   Les Orchard   &   K Lars Lohn", player.x, player.y + 20);
     ctx.fillText("Art by K Lars Lohn", player.x, player.y + 35);
-    ctx.fillText("Firefox® by the Mozilla Foundation", player.x, player.y + 50);
-    ctx.fillText("(used by an employee with tacit assent)", player.x, player.y + 65);
+    ctx.fillText("Firefox® by Mozilla", player.x, player.y + 50);
     ctx.restore();
     this.do_redraw = false;
   },
