@@ -1234,6 +1234,8 @@ function updatePlayerMotion(dt) {
   }
 
   let breadcrumbFound = false;
+  let detectedBreadcrumbX = false;
+  let detectedBreadcrumbY = false;
 
   //prevent overrun
   dx = tx - px;
@@ -1241,6 +1243,7 @@ function updatePlayerMotion(dt) {
   let largerDelta = Math.max(Math.abs(dx), Math.abs(dy));
   let dxStep = dx / largerDelta;
   let dyStep = dy / largerDelta;
+
 
   // check every point along the player path to ensure
   // that no boundary wall was crossed
@@ -1252,9 +1255,10 @@ function updatePlayerMotion(dt) {
     if (isPassableAt(testX, testY)) {
       overrunX = testX;
       overrunY = testY;
-      if (pixelIsRedAt(testX, testY)) {
+      if (!breadcrumbFound && pixelIsRedAt(testX, testY)) {
+        detectedBreadcrumbX = tx;
+        detectedBreadcrumbY = ty;
         breadcrumbFound = true;
-        markBreadcrumbAsUsed(testX, testY);
      }
 
     } else {
@@ -1268,8 +1272,10 @@ function updatePlayerMotion(dt) {
   [tx, ty] = suggestBetter(tx, ty);
   if (!isPassableAt(tx, ty)) return;
 
-  if (breadcrumbFound)
-    player.breadcrumb_stack.push([Math.round(tx), Math.round(ty)]);
+  if (breadcrumbFound && Math.abs(distanceFrom(tx, ty, player.restoredX, player.restoredY)) > 15) {
+    player.breadcrumb_stack.push([Math.round(detectedBreadcrumbX), Math.round(detectedBreadcrumbY)]);
+    markBreadcrumbAsUsed(detectedBreadcrumbX, detectedBreadcrumbY);
+  }
 
   // stop vibration
   let vdx = Math.abs(player.x - tx);
@@ -1873,7 +1879,8 @@ function createTouchCommands (dt, playerX, playerY, camera) {
   // kill the ended touch trackers
   let n = 0;
   for (let i = 0; i < touches.length; i++) {
-    if (Input.touchEventTracker[touches[i]].ended || (timestamp - Input.touchEventTracker[touches[i]].timestamp) > 9000 ) {
+    /*if (Input.touchEventTracker[touches[i]].ended || (timestamp - Input.touchEventTracker[touches[i]].timestamp) > 9000 ) {*/
+    if (Input.touchEventTracker[touches[i]].ended) {
       delete Input.touchEventTracker[touches[i]];
     }
   }
