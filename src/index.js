@@ -55,6 +55,8 @@ const greenMap = {
   pathData: [],
 
   startX: 499, startY: 430,
+  // startX: 3258, startY: 435,  // a start very near the end
+
   startHeadingX: 509, startHeadingY: 420,
   startArrowButt: [530,397],
   startArrowPoint: [509, 420],
@@ -230,7 +232,7 @@ const blueMap = {
 // repeats in the possibleMaps variable are to make some solutions rarer than others
 const possibleMaps = [greenMap, greenMap, greenMap, greenMap, redMap, redMap, redMap, redMapBackwards, greenMapBackwards, blueMap, blueMap, violetMap ];
 var map = possibleMaps[getRandomInt(0, possibleMaps.length)];
-//map = greenMap;
+// map = greenMap;
 
 const animationStartPoints = [[5000, 4000], [-1000, -1000], [0, 5000], [5000, -500]];
 const animationStartPoint = animationStartPoints[getRandomInt(0, animationStartPoints.length)];
@@ -713,14 +715,13 @@ const endAnimation = {
     let tx = Math.cos(player.r) * player.maxSpeed * 10 * dt + player.x;
     let ty = Math.sin(player.r) * player.maxSpeed * 10 * dt + player.y;
 
-    if (distanceFrom(tx, ty, 2000, -2100) < distanceFrom(tx, ty, player.x, player.y)) {
-      tx = 2000;
-      ty = -2100;
-      this.animationState = "reset";
-    }
     player.x = tx;
     player.y = ty;
 
+    if (!this.animationTimer) {
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('reset'), 5000);
+      this.do_redraw = true;
+    }
   },
   fly_away_draw(dt) {
   },
