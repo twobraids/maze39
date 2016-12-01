@@ -71,6 +71,9 @@ const greenMap = {
   endArrowLeftWing: [3247,396],
   endArrowRightWing: [3265, 397],
   endMessageBase: [3256, 417],
+
+  cheatX: 3280,
+  cheatY: 468,
 };
 
 const greenMapBackwards = {
@@ -102,6 +105,9 @@ const greenMapBackwards = {
   endArrowLeftWing: [515,399],
   endArrowRightWing: [529, 413],
   endMessageBase: [509, 420],
+
+  cheatX: 476,
+  cheatY: 468,
 };
 
 const redMap = {
@@ -133,6 +139,9 @@ const redMap = {
   endArrowLeftWing: [3192,408],
   endArrowRightWing: [3204, 395],
   endMessageBase: [3214, 416],
+
+  cheatX: 3261,
+  cheatY: 458,
 };
 
 const redMapBackwards = {
@@ -165,6 +174,8 @@ const redMapBackwards = {
   endArrowRightWing: [505, 392],
   endMessageBase: [490, 410],
 
+  cheatX: 436,
+  cheatY: 479,
 };
 
 const violetMap = {
@@ -196,6 +207,9 @@ const violetMap = {
   endArrowLeftWing: [2751,171],
   endArrowRightWing: [2769, 163],
   endMessageBase: [2770, 187],
+
+  cheatX: 2742,
+  cheatY: 205,
 };
 
 const blueMap = {
@@ -227,6 +241,9 @@ const blueMap = {
   endArrowLeftWing: [2873,3846],
   endArrowRightWing: [2887, 3847],
   endMessageBase: [2881, 3933], // shift way down to print under arrow
+
+  cheatX: 2913,
+  cheatY: 3785,
 };
 
 // repeats in the possibleMaps variable are to make some solutions rarer than others
@@ -616,8 +633,9 @@ const endAnimation = {
     }
     camera = endAnimationCamera;
     // we get commands, but don't act on them
-    // this allows any input to interrupt the opening animation
+    // this allows any input to interrupt the animation
     //getCurrentCommands(dt, player, camera);
+    player.suspendPathTracking = true;
     Commands.attention = false;
     updatePlayerZoom(dt);
     updatePlayerFromScript(dt);
@@ -638,6 +656,7 @@ const endAnimation = {
     followAndZoom(dt);
     drawArrows(dt);
     drawAnimationFrame(dt);
+    drawUsedPaths(dt);
     drawPlayer(dt);
     ctx.restore();
     drawDebug(dt);
@@ -709,21 +728,68 @@ const endAnimation = {
     player.forceZoomIn = false;
     this.do_redraw = true;
 
-    let distanceFromMiddle = distanceFrom(player.x, player.y, 2000, -2100);
-    player.r = Math.atan2((-2100 + distanceFromMiddle / 2.0) - player.y, (2000) - player.x);
-    player.v = 0;
-    let tx = Math.cos(player.r) * player.maxSpeed * 10 * dt + player.x;
-    let ty = Math.sin(player.r) * player.maxSpeed * 10 * dt + player.y;
+    let distanceFromEnd = distanceFrom(player.x, player.y, 2000, -2500);
+    if (distanceFromEnd > 20) {
+      player.r = Math.atan2((-2500 + distanceFromEnd / 2.0) - player.y, (2000) - player.x);
+      player.v = 0;
+      let tx = Math.cos(player.r) * player.maxSpeed * 10 * dt + player.x;
+      let ty = Math.sin(player.r) * player.maxSpeed * 10 * dt + player.y;
 
-    player.x = tx;
-    player.y = ty;
+      player.x = tx;
+      player.y = ty;
+    }
 
     if (!this.animationTimer) {
-      this.animationTimer = window.setInterval(() => this.advanceInternalState('reset'), 5000);
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('red_cursor'), 3000);
       this.do_redraw = true;
     }
   },
   fly_away_draw(dt) {
+  },
+
+  red_cursor() {
+    if (!this.animationTimer) {
+      player.colorOverride = true;
+      player.colorHintingTimer = window.setInterval(degradeHintingColor, 200);
+      player.forceZoomIn = true;
+      this.do_redraw = true;
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('explode'), 3000);
+    }
+  },
+  red_cursor_draw() {
+  },
+
+  explode(dt) {
+    if (!this.animationTimer) {
+      if (player.colorHintingTimer)
+        window.clearInterval(player.colorHintingTimer)
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('blackout_player'), 2000);
+      this.do_redraw = true;
+    }
+    player.victory = true;
+  },
+  explode_draw(dt) {
+  },
+
+  blackout_player(dt) {
+    if (!this.animationTimer) {
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('blackout_everything'), 1000);
+      player.colorOverride = true;
+      player.color = 0;
+    }
+  },
+  blackout_player_draw(draw){
+  },
+
+  blackout_everything(dt) {
+    if (!this.animationTimer) {
+      this.animationTimer = window.setInterval(() => this.advanceInternalState('reset'), 2000);
+      player.colorOverride = true;
+      player.color = 0;
+      player.victory = false;
+    }
+  },
+  blackout_everything_draw(draw){
   },
 
   reset(dt) {
@@ -731,10 +797,102 @@ const endAnimation = {
   },
   reset_draw(dt) {
   },
+}
 
+const cheatAnimation = {
+  animationState: "init_cheat_animation",
+  animationTimer: false,
+  endAnimationState: "land_on_cheat",
+  do_redraw: false,
+  saved_camera: false,
+
+  playerPositionHeuristic(singleAxisPosition) {
+    return singleAxisPosition;
+  },
+
+  update(dt) {
+    if (DEBUG) {
+      statsUpdate.begin();
+    }
+    player.suspendPathTracking = true;
+    camera = animationCamera;
+    getCurrentCommands(dt, player, camera);
+    Commands.attention = false;
+    updatePlayerZoom(dt);
+    updatePlayerFromScript(dt);
+    updateDebug();
+    if (
+      DEBUG) {
+      statsUpdate.end();
+    }
+  },
+
+  draw(dt) {
+    if (DEBUG) {
+      statsDraw.begin();
+    }
+    clearCanvas();
+    ctx.save();
+    drawMaze(dt);
+    followAndZoom(dt);
+    drawArrows(dt);
+    drawAnimationFrame(dt);
+    drawUsedPaths(dt);
+    drawPlayer(dt);
+    ctx.restore();
+    drawDebug(dt);
+    if (DEBUG) {
+      statsDraw.end();
+    }
+  },
+
+  init_cheat_animation(dt) {
+    player.forceZoomIn = false;
+    this.do_redraw = true;
+    let columnNumber = Math.trunc(player.current_path[0] / map.tileWidth);
+    let rowNumber = Math.trunc(player.current_path[1] / map.tileHeight);
+    player.used_paths[columnNumber][rowNumber].push(player.current_path);
+    player.current_path = [map.cheatX, map.cheatY];
+    this.animationState = "fly_to_cheat";
+    player.suspendPathTracking = true;
+  },
+  init_cheat_animation_draw(dt) {
+  },
+
+
+  fly_to_cheat(dt) {
+
+    let distanceFromCheat = distanceFrom(player.x, player.y, map.cheatX, map.cheatY);
+    player.r = Math.atan2((map.cheatY + distanceFromCheat / 2.0) - player.y, (map.cheatX) - player.x);
+    player.v = 0;
+    let tx = Math.cos(player.r) * player.maxSpeed * 5 * dt + player.x;
+    let ty = Math.sin(player.r) * player.maxSpeed * 5 * dt + player.y;
+
+    if (distanceFrom(tx, ty, map.cheatX, map.cheatY) < distanceFrom(tx, ty, player.x, player.y)) {
+      tx = map.cheatX;
+      ty = map.cheatY;
+      this.animationState = "land_on_cheat";
+    }
+    player.x = tx;
+    player.y = ty;
+  },
+  fly_to_cheat_draw(dt) {
+  },
+
+  land_on_cheat(dt) {
+    camera = gameCameraNoAutoZoom;
+    player.forceZoomIn = false;
+    player.suspendPathTracking = false;
+    gameState = gamePlay;
+    gameState.animationState = "";
+    gameState.do_redraw = true;
+  },
+  land_on_cheat_draw(dt) {
+  },
 
 
 }
+
 
 // the game begins with the opening animation
 // When any game state finishes, it is the current game state's responsilibity to set
@@ -1063,7 +1221,7 @@ function drawUsedPaths(dt) {
   // update used paths
   let lastX = player.current_path[player.current_path.length - 2];
   let lastY = player.current_path[player.current_path.length - 1];
-  if (Math.abs(lastX - player.x) > 6 || Math.abs(lastY - player.y) > 6) {
+  if (!player.suspendPathTracking && (Math.abs(lastX - player.x) > 6 || Math.abs(lastY - player.y) > 6)) {
     player.current_path.push(Math.round(player.x));
     player.current_path.push(Math.round(player.y));
   }
@@ -1131,14 +1289,26 @@ function initPlayer() {
   player.y = map.startY;
   player.breadcrumb_stack = new Stack();
   player.current_path = [player.x, player.y];
+  player.suspendPathTracking = false;
+  player.victory = false;
   player.r = Math.atan2(map.startY - map.startHeadingY, map.startX - map.startHeadingX);
   player.v = 0;
   player.color = 4095;
   player.sprite = {
    rings: [
-    { t: 0, delay: 0,   startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000 },
-    { t: 0, delay: 300, startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000 },
-    { t: 0, delay: 600, startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000 }
+    { t: 0, delay: 0,   startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000, color: "white" },
+    { t: 0, delay: 300, startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000, color: "white" },
+    { t: 0, delay: 600, startR: 0, endR: 50, startO: 1.0, endO: 0.0, endT: 3000, color: "white" }
+   ],
+   victoryRings: [
+     { t: 0, delay: 0,   startR: 0, endR: 200, startO: 1.0, endO: 1.0, endT: 900, color: "red" },
+     { t: 0, delay: 100, startR: 0, endR: 200, startO: 1.0, endO: 1.0, endT: 900, color: "orangered" },
+     { t: 0, delay: 200, startR: 0, endR: 200, startO: 1.0, endO: 1.0, endT: 900, color: "orange" },
+     { t: 0, delay: 300, startR: 0, endR: 200, startO: 1.0, endO: 1.0, endT: 900, color: "yellow" },
+     { t: 0, delay: 300, startR: 0, endR: 200, startO: 1.0, endO: 1.0, endT: 900, color: "gold" },
+     { t: 0, delay: 400, startR: 0, endR: 200, startO: 1.0, endO: 1.0, endT: 900, color: "orangered" },
+     { t: 0, delay: 500, startR: 0, endR: 200, startO: 1.0, endO: 1.0, endT: 900, color: "white" },
+     { t: 0, delay: 600, startR: 0, endR: 200, startO: 1.0, endO: 1.0, endT: 900, color: "pink" }
    ]
   };
   // create a big column ordered grid of lists that mirror the size and shape of the tile
@@ -1449,6 +1619,28 @@ function upgradeHintingColor() {
   }
 }
 
+
+function drawRings(dt, px, py, rings) {
+  rings.forEach(ring => {
+    if (ring.delay > 0) { return ring.delay -= dt; }
+
+    ring.t += dt;
+    if (ring.t >= ring.endT) { ring.t = 0; }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = ring.color;
+    ctx.globalAlpha = lerp(ring.startO, ring.endO, ring.t / ring.endT);
+    ctx.arc(px, py,
+      lerp(ring.startR, ring.endR, ring.t / ring.endT),
+      0, PI2);
+    ctx.stroke();
+    ctx.restore();
+  });
+
+}
+
 function drawPlayer(dt) {
   let inSolutionPath = pixelIsGreenAt(player.x, player.y);
 
@@ -1514,22 +1706,10 @@ function drawPlayer(dt) {
 
   // When we're zoomed out, animate a ripple to call attention to the avatar.
   if (camera.z < 0.8) {
-    player.sprite.rings.forEach(ring => {
-      if (ring.delay > 0) { return ring.delay -= dt; }
-
-      ring.t += dt;
-      if (ring.t >= ring.endT) { ring.t = 0; }
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.lineWidth = 2.5;
-      ctx.globalAlpha = lerp(ring.startO, ring.endO, ring.t / ring.endT);
-      ctx.arc(px, py,
-              lerp(ring.startR, ring.endR, ring.t / ring.endT),
-              0, PI2);
-      ctx.stroke();
-      ctx.restore();
-    });
+    drawRings(dt, px, py, player.sprite.rings);
+  }
+  if (player.victory) {
+    drawRings(dt, px, py, player.sprite.victoryRings);
   }
 }
 
@@ -1581,6 +1761,7 @@ const KeyboardCommands = {
   pause: false,
   save: false,
   quit: false,
+  cheat: false,
 };
 
 function createKeyboardCommands (dt, playerX, playerY, camera) {
@@ -1592,6 +1773,7 @@ function createKeyboardCommands (dt, playerX, playerY, camera) {
   KeyboardCommands.autozoom = false;
   KeyboardCommands.pause = false;
   KeyboardCommands.save = false;
+  KeyboardCommands.cheat = false;
 
   // Query cursor keys & WASD
   const dleft  = (Input.keys[65] || Input.keys[37]);
@@ -1644,6 +1826,16 @@ function createKeyboardCommands (dt, playerX, playerY, camera) {
     delete Input.keys[80]
   }
 
+  if (Input.keys[67] && Input.keys[72] && Input.keys[84] && Input.keys[69] && Input.keys[65]) {
+    KeyboardCommands.attention = true;
+    KeyboardCommands.cheat = true;
+    delete Input.keys[67];
+    delete Input.keys[72];
+    delete Input.keys[84];
+    delete Input.keys[69];
+    delete Input.keys[65];
+  }
+
   // TODO: keyboard command for save
   // TODO: keyboard command for quit
 
@@ -1662,6 +1854,7 @@ const MouseCommands = {
   pause: false,
   save: false,
   quit: false,
+  cheat: false,
 };
 
 function createMouseCommands (dt, playerX, playerY, camera) {
@@ -1672,6 +1865,7 @@ function createMouseCommands (dt, playerX, playerY, camera) {
   MouseCommands.zoom = false;
   MouseCommands.auto_zoom = false;
   MouseCommands.pause = false;
+  MouseCommands.cheat = false;
 
   if (Input.mouse.down === 0) {
     // left mouse for move
@@ -1718,6 +1912,7 @@ const GameControllerCommands = {
   pause: false,
   save: false,
   quit: false,
+  cheat: false,
 };
 
 function createGameControllerCommands (dt, playerX, playerY, camera) {
@@ -1728,6 +1923,7 @@ function createGameControllerCommands (dt, playerX, playerY, camera) {
   GameControllerCommands.zoom = false;
   GameControllerCommands.auto_zoom = false;
   GameControllerCommands.pause = false;
+  GameControllerCommands.cheat = false;
 
   if (Object.keys(Input.gamepad).length) GameControllerCommands.attention = true;
 
@@ -1820,6 +2016,7 @@ const TouchCommands = {
   pause: false,
   save: false,
   quit: false,
+  cheat: false,
 };
 
 function createTouchCommands (dt, playerX, playerY, camera) {
@@ -1830,6 +2027,7 @@ function createTouchCommands (dt, playerX, playerY, camera) {
   TouchCommands.zoom = false;
   TouchCommands.auto_zoom = false;
   TouchCommands.pause = false;
+  TouchCommands.cheat = false;
 
   let timestamp = Date.now();
   let touches = Object.keys(Input.touchEventTracker);
@@ -1903,6 +2101,7 @@ const MovementCommands = {
   pause: false,
   save: false,
   quit: false,
+  cheat: false,
 };
 
 function createMovementCommands (dt, playerX, playerY, camera) {
@@ -1928,6 +2127,7 @@ function mergeCommands(candidate, target) {
     target.pause = candidate.pause ? candidate.pause : target.pause;
     target.save = candidate.save ? candidate.save : target.save;
     target.quit = candidate.quit ? candidate.quit : target.quit;
+    target.cheat = candidate.cheat ? candidate.cheat : target.cheat;
   }
 }
 
@@ -1944,6 +2144,7 @@ var Commands = {
   pause: false,
   save: false,
   quit: false,
+  cheat: false,
 };
 
 function getCurrentCommands(dt, player, currentCamera) {
@@ -1957,6 +2158,7 @@ function getCurrentCommands(dt, player, currentCamera) {
   Commands.pause = false;
   Commands.save = false;
   Commands.quit = false;
+  Commands.cheat = false;
 
   Input.update(dt);
   InputCommandFunctions.forEach(e => e(dt, player.x, player.y, currentCamera));
@@ -2018,6 +2220,11 @@ function actOnCurrentCommands(dt, player, currentCamera) {
   if (Commands.pause) {
     gameState.do_redraw = true;
     switchToPauseMode();
+  }
+
+  if (Commands.cheat) {
+    gameState = cheatAnimation;
+    gameState.animationState = "init_cheat_animation";
   }
 
 }
