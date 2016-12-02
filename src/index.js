@@ -955,6 +955,7 @@ const offscreenContext = offscreenCanvas.getContext('2d');
 const openingDisplayDiv = document.getElementById('explanation');
 const theStartButton = document.getElementById('theStartButton');
 const theResumeButton = document.getElementById('theResumeButton');
+const theCountDownThrobber = document.getElementById('countdown');
 
 
 function switchToGamePlayMode() {
@@ -967,7 +968,11 @@ function switchToGamePlayMode() {
     children[i].style.visibility = 'hidden';
 
   theStartButton.style.visibility = 'hidden';
+  theStartButton.style.display = 'none';
   theResumeButton.style.visibility = 'hidden';
+  theResumeButton.style.display = 'none';
+  theCountDownThrobber.style.visibility = 'hidden';
+  theCountDownThrobber.style.display = 'none';
   theCanvas.style.visibility = "visible";
 
   gameState.do_redraw = true;
@@ -987,9 +992,12 @@ function switchToPauseMode() {
     children[i].style.visibility = 'visible';
 
   theCanvas.style.visibility = 'hidden';
+  theStartButton.style.display = 'inline';
   theStartButton.style.visibility = 'visible';
   theResumeButton.style.display = 'inline';
   theResumeButton.style.visibility = 'visible';
+  theCountDownThrobber.style.visibility = 'hidden';
+  theCountDownThrobber.style.display = 'none';
 
   // restore normal Web page input handlers
   Input.restoreOriginalHandlers();
@@ -1007,7 +1015,11 @@ function switchToResumeMode() {
   for (let i = 0; i < children.length; i++)
     children[i].style.visibility = 'hidden';
   theStartButton.style.visibility = 'hidden';
+  theStartButton.style.display = 'none';
   theResumeButton.style.visibility = 'hidden';
+  theResumeButton.style.display = 'none';
+  theCountDownThrobber.style.visibility = 'hidden';
+  theCountDownThrobber.style.display = 'none';
   theCanvas.style.visibility = 'visible';
   gameState.do_redraw = true;
 
@@ -1022,6 +1034,7 @@ theResumeButton.onclick= function() {
 
 
 function loadHandlerForWindow() {
+  let counter = map.numberOfTileRows * map.numberOfTileColumns;
 
   const activateStartButton = e => {
     offscreenCanvas.width = map.width;
@@ -1030,9 +1043,27 @@ function loadHandlerForWindow() {
     map.pathData = offscreenContext.getImageData(0, 0, map.width, map.height).data;
     const theStartButton = document.getElementById('theStartButton');
     theStartButton.onclick = switchToGamePlayMode;
+    theStartButton.style.display = "inline";
     theStartButton.style.visibility = "visible";
+    theCountDownThrobber.style.visibility = 'invisible';
+    theCountDownThrobber.style.display = 'none';
     map.pathImg.removeEventListener('load', activateStartButton);
   }
+  theCountDownThrobber.style.visibility = 'visible';
+  theCountDownThrobber.style.display = 'inline';
+  theCountDownThrobber.textContent = "preloading: " + counter.toString();
+  for(let row = 0; row < map.numberOfTileRows; row++)
+    for(let col = 0; col < map.numberOfTileColumns; col++) {
+      const tileKey = `${row}x${col}`;
+      const img = new Image();
+      map.tiles[tileKey] = img;
+      img.addEventListener("load", e => {
+        counter--;
+        theCountDownThrobber.textContent = "preloading: " + (counter + 1).toString();
+      });
+      img.src = `${map.baseMapTilePath}/${tileKey}.png`;
+
+    }
 
   map.pathImg = new Image();
   // we want the user to be reading the instructions while the App loads
