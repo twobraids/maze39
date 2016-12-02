@@ -793,10 +793,16 @@ const endAnimation = {
   },
 
   reset(dt) {
+    this.animationState = done;
     document.location.reload(true);
   },
   reset_draw(dt) {
   },
+
+  done(dt) {
+  },
+  done_draw(dt){
+  }
 }
 
 const cheatAnimation = {
