@@ -793,7 +793,7 @@ const endAnimation = {
   },
 
   reset(dt) {
-    this.animationState = done;
+    this.animationState = "done";
     document.location.reload(true);
   },
   reset_draw(dt) {
