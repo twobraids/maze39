@@ -1,4 +1,4 @@
-# fx-maze
+# maze39
 
 [![Build Status](https://travis-ci.org/lmorchard/fx-maze.svg?branch=master)](https://travis-ci.org/lmorchard/fx-maze)
 
